@@ -207,6 +207,22 @@ void test_lvc_auto_detect_too_low() {
     TEST_ASSERT_EQUAL_UINT8(0, lvcAutoDetectCells(1.0f));
 }
 
+// Finding 3: LVC fails closed when cell count unknown
+void test_lvc_update_sensor_fault() {
+    LvcState state = {};
+    LvcConfig cfg = {3.3f, 3.0f, 0};              // Auto-detect
+    LvcLevel level = lvcUpdate(state, 1.0f, cfg); // Too low to detect
+    TEST_ASSERT_EQUAL(LvcLevel::SENSOR_FAULT, level);
+}
+
+void test_lvc_update_cell_count_unknown() {
+    LvcState state = {};
+    LvcConfig cfg = {3.3f, 3.0f, 0}; // Auto-detect
+    // 27V is out of range for auto-detect (>6S)
+    LvcLevel level = lvcUpdate(state, 27.0f, cfg);
+    TEST_ASSERT_EQUAL(LvcLevel::CELL_COUNT_UNKNOWN, level);
+}
+
 void test_lvc_update_ok() {
     LvcState state = {};
     LvcConfig cfg = {3.3f, 3.0f, 3};
@@ -400,6 +416,8 @@ int main() {
     RUN_TEST(test_lvc_auto_detect_3s);
     RUN_TEST(test_lvc_auto_detect_4s);
     RUN_TEST(test_lvc_auto_detect_too_low);
+    RUN_TEST(test_lvc_update_sensor_fault);
+    RUN_TEST(test_lvc_update_cell_count_unknown);
     RUN_TEST(test_lvc_update_ok);
     RUN_TEST(test_lvc_update_warn);
     RUN_TEST(test_lvc_update_critical);

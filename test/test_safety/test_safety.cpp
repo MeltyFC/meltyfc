@@ -11,14 +11,17 @@ static constexpr uint8_t DEFAULT_DEBOUNCE = 5;
 
 static ArmPreconditions allGood() {
     return {
-        true, // armSwitchLow
-        true, // spinStickZero
-        true, // rcLinkHealthy
-        true, // sensorsHealthy
-        true, // armSwitchCurrentlyHigh
-        true, // frameValid
-        100,  // linkQuality
-        true, // batteryPresent
+        true,  // armSwitchLow
+        true,  // spinStickZero
+        true,  // rcLinkHealthy
+        true,  // sensorsHealthy
+        true,  // armSwitchCurrentlyHigh
+        true,  // frameValid
+        100,   // linkQuality
+        true,  // batteryPresent
+        true,  // vbatValid (Finding 3)
+        false, // lvcCritical (Finding 5)
+        true,  // configValid (Finding 9)
     };
 }
 
@@ -247,6 +250,47 @@ void test_arm_debounce_5_consecutive_arms() {
 }
 
 // ============================================================================
+// Finding 3/5: LVC fail-closed + hard safety disarm
+// ============================================================================
+
+void test_cannot_arm_lvc_critical() {
+    auto pre = allGood();
+    pre.lvcCritical = true;
+    auto safety = freshState();
+    TEST_ASSERT_FALSE(canArm(pre, safety, DEFAULT_DEBOUNCE));
+}
+
+void test_cannot_arm_vbat_invalid() {
+    auto pre = allGood();
+    pre.vbatValid = false;
+    auto safety = freshState();
+    TEST_ASSERT_FALSE(canArm(pre, safety, DEFAULT_DEBOUNCE));
+}
+
+void test_cannot_arm_config_invalid() {
+    auto pre = allGood();
+    pre.configValid = false;
+    auto safety = freshState();
+    TEST_ASSERT_FALSE(canArm(pre, safety, DEFAULT_DEBOUNCE));
+}
+
+void test_lvc_critical_forces_error_while_armed() {
+    auto pre = allGood();
+    pre.lvcCritical = true;
+    SafetyState safety = freshState();
+    auto state = updateArmState(ArmState::ARMED, pre, safety, 0, defaultCfg());
+    TEST_ASSERT_EQUAL(ArmState::ERROR, state);
+}
+
+void test_vbat_invalid_forces_error_while_armed() {
+    auto pre = allGood();
+    pre.vbatValid = false;
+    SafetyState safety = freshState();
+    auto state = updateArmState(ArmState::ARMED, pre, safety, 0, defaultCfg());
+    TEST_ASSERT_EQUAL(ArmState::ERROR, state);
+}
+
+// ============================================================================
 // Round 4: Hot-plug disarm (2g)
 // ============================================================================
 
@@ -318,6 +362,9 @@ int main() {
     RUN_TEST(test_cannot_arm_lq_zero);
     RUN_TEST(test_cannot_arm_insufficient_debounce);
     RUN_TEST(test_cannot_arm_no_battery);
+    RUN_TEST(test_cannot_arm_lvc_critical);
+    RUN_TEST(test_cannot_arm_vbat_invalid);
+    RUN_TEST(test_cannot_arm_config_invalid);
     RUN_TEST(test_preconditions_default_init_all_false);
 
     // State machine
@@ -336,6 +383,8 @@ int main() {
     // Round 4
     RUN_TEST(test_arm_debounce_4_high_1_low_4_high_never_arms);
     RUN_TEST(test_arm_debounce_5_consecutive_arms);
+    RUN_TEST(test_lvc_critical_forces_error_while_armed);
+    RUN_TEST(test_vbat_invalid_forces_error_while_armed);
     RUN_TEST(test_hot_plug_disarms);
     RUN_TEST(test_choke_point_all_states);
     RUN_TEST(test_throttle_to_dshot_mapping);

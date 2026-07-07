@@ -30,42 +30,73 @@ bool validateCrc(uint16_t frame) {
 // Frame packing
 // ============================================================================
 
-uint16_t packFrame(uint16_t throttle, bool telemetryRequest) {
+// Finding 6: Split throttle and command packers
+uint16_t packThrottleFrame(uint16_t throttle, bool telemetryRequest) {
     // Clamp throttle to valid range: 0 (disarm) or 48-2047
-    // Values 1-47 are DShot COMMANDS (beep, reverse, save settings) —
-    // sending them as throttle reconfigures ESCs mid-fight.
+    // Values 1-47 are DShot COMMANDS — NEVER emit as throttle
     if (throttle > 2047)
         throttle = 2047;
     if (throttle > 0 && throttle < DSHOT_MIN_THROTTLE)
         throttle = DSHOT_MIN_THROTTLE;
 
-    // Frame layout: [throttle:11][telem:1][crc:4]
     uint16_t frame = (throttle << 5) | (telemetryRequest ? (1 << 4) : 0);
     frame |= computeCrc(frame);
     return frame;
 }
 
-uint16_t packFrameBidir(uint16_t throttle, bool telemetryRequest) {
-    // Bidirectional DShot: CRC is INVERTED so the ESC detects bidir capability
-    // and starts sending telemetry. Without inverted CRC, ESC treats as normal DShot.
+uint16_t packCommandFrame(uint16_t command, bool telemetryRequest) {
+    // Command frames use values 1-47 — DO NOT clamp to 48
+    // Caller must ensure this is only sent while DISARMED
+    if (command > 47)
+        command = 47;
+
+    uint16_t frame = (command << 5) | (telemetryRequest ? (1 << 4) : 0);
+    frame |= computeCrc(frame);
+    return frame;
+}
+
+uint16_t packThrottleBidir(uint16_t throttle, bool telemetryRequest) {
     if (throttle > 2047)
         throttle = 2047;
     if (throttle > 0 && throttle < DSHOT_MIN_THROTTLE)
         throttle = DSHOT_MIN_THROTTLE;
 
     uint16_t frame = (throttle << 5) | (telemetryRequest ? (1 << 4) : 0);
-    uint8_t crc = (~computeCrc(frame)) & 0x0F; // INVERTED
-    frame |= crc;
+    frame |= computeCrc(frame) ^ 0x0F; // Inverted CRC for bidir
     return frame;
 }
+
+uint16_t packCommandBidir(uint16_t command, bool telemetryRequest) {
+    if (command > 47)
+        command = 47;
+
+    uint16_t frame = (command << 5) | (telemetryRequest ? (1 << 4) : 0);
+    frame |= computeCrc(frame) ^ 0x0F;
+    return frame;
+}
+
+// Legacy wrappers — map to the split versions
+// packFrame/packFrameBidir are inlined in the header via the throttle versions
 
 // ============================================================================
 // Timer compare-buffer encoding
 // ============================================================================
 
-DshotTimingConfig calculateTiming(uint32_t timerClockHz, uint32_t dshotBitrate) {
-    // DShot bit period in timer ticks
-    uint32_t bitPeriod = timerClockHz / dshotBitrate;
+DshotTimingConfig calculateTiming(uint32_t timerClockHz, uint32_t dshotBitrateHz) {
+    // Finding 2: bitrate MUST be in Hz (e.g., 300000 for DShot300).
+    // Sanity check: valid DShot modes are 150k-1200k Hz.
+    // Values < 100000 are almost certainly mode numbers (150, 300, etc.) — reject.
+    if (dshotBitrateHz < 100000U || dshotBitrateHz > 1200000U) {
+        // Return zero timing — caller should check and fail
+        return {0, 0, 0};
+    }
+
+    uint32_t bitPeriod = timerClockHz / dshotBitrateHz;
+
+    // Verify result fits in uint16_t (should be 70-560 for 84MHz clock)
+    if (bitPeriod == 0 || bitPeriod > 65535U) {
+        return {0, 0, 0};
+    }
 
     return {
         static_cast<uint16_t>(bitPeriod),

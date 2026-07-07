@@ -31,6 +31,6 @@ void SystemClock_Config(void);
 #define I2C_INSTANCE I2C2
 #define I2C_SPEED_HZ 400000 // Fast mode
 
-// DShot config
-#define DSHOT_BITRATE 300 // DShot300
-#define DSHOT_BIDIR 1     // Bidirectional for eRPM telemetry
+// DShot config — Finding 2: bitrate MUST be in Hz, not mode number
+#define DSHOT_BITRATE_HZ 300000U // DShot300 = 300 kbit/s
+#define DSHOT_BIDIR 1            // Bidirectional for eRPM telemetry

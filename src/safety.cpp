@@ -17,6 +17,9 @@ bool canArm(const ArmPreconditions& pre, const SafetyState& safety, uint8_t requ
            && pre.armSwitchCurrentlyHigh // Switch is NOW requesting arm (from valid frame)
            && pre.linkQuality > 0        // 2a: LQ must be nonzero
            && pre.batteryPresent         // Battery must be present
+           && pre.vbatValid              // Finding 3: VBAT ADC must be sane
+           && !pre.lvcCritical           // Finding 5: cannot arm while LVC critical
+           && pre.configValid            // Finding 9: config must pass validation
            && safety.armHighCount >= requiredFrames; // 2b: debounce
 }
 
@@ -30,6 +33,14 @@ ArmState updateArmState(ArmState current, const ArmPreconditions& pre, SafetySta
         if (pre.linkQuality == 0 || msSinceLastRcFrame > cfg.failsafeMs) {
             safety.armHighCount = 0; // Reset debounce
             return ArmState::FAILSAFE;
+        }
+    }
+
+    // --- Finding 5: Hard safety failures force disarm from any running state ---
+    if (current != ArmState::BOOT && current != ArmState::ERROR) {
+        if (pre.lvcCritical || !pre.vbatValid || !pre.configValid) {
+            safety.armHighCount = 0;
+            return ArmState::ERROR;
         }
     }
 

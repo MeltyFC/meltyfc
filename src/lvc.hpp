@@ -11,10 +11,13 @@ namespace melty {
 // ============================================================================
 // LVC state
 // ============================================================================
+// Finding 3: LVC must fail CLOSED — unknown/invalid = no motor authority
 enum class LvcLevel : uint8_t {
     OK,
-    WARN,     // Below warn threshold — TX warning, LED overlay
-    CRITICAL, // Below crit threshold — auto spin-down
+    WARN,               // Below warn threshold — TX warning, LED overlay
+    CRITICAL,           // Below crit threshold — auto spin-down + force disarm
+    SENSOR_FAULT,       // VBAT ADC invalid/disconnected — cannot determine state
+    CELL_COUNT_UNKNOWN, // Auto-detect ambiguous — require manual config or refuse to arm
 };
 
 struct LvcConfig {

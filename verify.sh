@@ -178,7 +178,16 @@ if [ -n "$I2_HITS" ]; then
     fail "Invariant I-2: no option-byte code may exist"
 fi
 
-pass "Rocket invariants (I-1, I-2)"
+# Finding 1: Pinmap placeholder warning
+if grep -q "PINMAP_IS_PLACEHOLDER" targets/crux_f405hd/pinmap.h 2>/dev/null; then
+    warn "Pinmap is PLACEHOLDER — do NOT flash to real hardware until verified from BF dump"
+fi
+
+# Finding 8: Motor choke enforcement
+# (Placeholder check — will be expanded when HAL motor drivers exist.
+#  For now, verify no raw DShot buffer writes outside approved files.)
+
+pass "Rocket invariants (I-1, I-2) + safety checks"
 
 # ----------------------------------------------------------------
 # Summary

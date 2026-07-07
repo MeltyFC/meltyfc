@@ -5,8 +5,16 @@
 // All values below are PLACEHOLDERS until the Step 0 dump is captured.
 // Trip: connect to Betaflight Configurator, run `dump all` + `resource list`,
 // commit to docs/PINMAP_source_dump.txt, then update this file.
+//
+// Finding 1: This file MUST NOT compile for real hardware until verified.
+// Define PINMAP_VERIFIED_FROM_BETAFLIGHT_DUMP after replacing all placeholders.
 
 #pragma once
+
+// Finding 1 gate: When the real dump is captured, remove PINMAP_IS_PLACEHOLDER
+// and define PINMAP_VERIFIED_FROM_BETAFLIGHT_DUMP.
+// verify.sh warns on placeholder; MUST be resolved before first hardware flash.
+#define PINMAP_IS_PLACEHOLDER 1
 
 // ============================================================================
 // PLACEHOLDER PIN ASSIGNMENTS — UPDATE FROM STEP 0 DUMP

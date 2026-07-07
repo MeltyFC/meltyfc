@@ -39,10 +39,16 @@ LvcLevel lvcUpdate(LvcState& state, float packVoltage, const LvcConfig& cfg) {
     }
 
     if (state.detectedCells == 0) {
-        // Can't determine cell count — no LVC
+        // Finding 3: Fail CLOSED — unknown cell count = no motor authority
         state.cellVoltage = 0.0f;
-        state.level = LvcLevel::OK;
-        return LvcLevel::OK;
+        if (packVoltage < 2.5f) {
+            // No battery detected (USB-only or disconnected ADC)
+            state.level = LvcLevel::SENSOR_FAULT;
+        } else {
+            // Battery present but cell count ambiguous
+            state.level = LvcLevel::CELL_COUNT_UNKNOWN;
+        }
+        return state.level;
     }
 
     state.cellVoltage = packVoltage / static_cast<float>(state.detectedCells);

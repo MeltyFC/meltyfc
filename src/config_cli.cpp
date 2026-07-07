@@ -287,8 +287,20 @@ const char* executeSet(ConfigData& cfg, const char* name, const char* valueStr) 
         }
     }
 
-    if (!setParamFloat(cfg, *def, value))
+    // Finding 9: Transactional validation — apply to candidate, validate, then commit
+    ConfigData candidate = cfg;
+    if (!setParamFloat(candidate, *def, value))
         return "Error: failed to set value\r\n";
+
+    // Cross-parameter validation on the candidate
+    auto result = validateConfig(candidate);
+    if (result.issueCount > 0) {
+        // validateConfig fixes in-place — use the fixed version but warn the user
+        cfg = candidate;
+        return "Warning: value adjusted for cross-param safety (run `dump` to see)\r\n";
+    }
+
+    cfg = candidate;
     return nullptr; // Success
 }
 

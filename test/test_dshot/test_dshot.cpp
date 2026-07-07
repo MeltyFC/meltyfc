@@ -83,6 +83,52 @@ void test_timing_dshot300_84mhz() {
     TEST_ASSERT_EQUAL_UINT16(105, timing.bit0HighTicks);
 }
 
+// Finding 2: All DShot modes at 84 MHz
+void test_timing_dshot150_84mhz() {
+    auto timing = calculateTiming(84000000, 150000);
+    TEST_ASSERT_EQUAL_UINT16(560, timing.bitPeriodTicks);
+}
+
+void test_timing_dshot600_84mhz() {
+    auto timing = calculateTiming(84000000, 600000);
+    TEST_ASSERT_EQUAL_UINT16(140, timing.bitPeriodTicks);
+}
+
+void test_timing_dshot1200_84mhz() {
+    auto timing = calculateTiming(84000000, 1200000);
+    TEST_ASSERT_EQUAL_UINT16(70, timing.bitPeriodTicks);
+}
+
+// Finding 2: Reject bare mode numbers (300 instead of 300000)
+void test_timing_rejects_bare_mode_number() {
+    auto timing = calculateTiming(84000000, 300);       // Wrong! Should be 300000
+    TEST_ASSERT_EQUAL_UINT16(0, timing.bitPeriodTicks); // Returns zero = error
+}
+
+void test_timing_rejects_zero() {
+    auto timing = calculateTiming(84000000, 0);
+    TEST_ASSERT_EQUAL_UINT16(0, timing.bitPeriodTicks);
+}
+
+// Finding 6: Command frame preserves command ID
+void test_command_frame_preserves_id() {
+    uint16_t frame = packCommandFrame(13, true); // EDT enable
+    uint16_t command = (frame >> 5) & 0x7FF;
+    TEST_ASSERT_EQUAL_UINT16(13, command); // Must be 13, not clamped to 48
+}
+
+void test_throttle_frame_clamps_to_48() {
+    uint16_t frame = packThrottleFrame(13, false);
+    uint16_t throttle = (frame >> 5) & 0x7FF;
+    TEST_ASSERT_EQUAL_UINT16(48, throttle); // Clamped from 13 to 48
+}
+
+void test_command_bidir_preserves_id() {
+    uint16_t frame = packCommandBidir(13, true);
+    uint16_t command = (frame >> 5) & 0x7FF;
+    TEST_ASSERT_EQUAL_UINT16(13, command);
+}
+
 void test_compare_buffer_encoding() {
     auto timing = calculateTiming(84000000, 300000);
     uint16_t buf[DSHOT_COMPARE_BUF_SIZE];
@@ -315,8 +361,18 @@ int main() {
     RUN_TEST(test_crc_rejects_corrupt);
     RUN_TEST(test_crc_rejects_data_corruption);
 
-    // Timer encoding
+    // Finding 6: Command vs throttle frames
+    RUN_TEST(test_command_frame_preserves_id);
+    RUN_TEST(test_throttle_frame_clamps_to_48);
+    RUN_TEST(test_command_bidir_preserves_id);
+
+    // Timer encoding — all DShot modes
+    RUN_TEST(test_timing_dshot150_84mhz);
     RUN_TEST(test_timing_dshot300_84mhz);
+    RUN_TEST(test_timing_dshot600_84mhz);
+    RUN_TEST(test_timing_dshot1200_84mhz);
+    RUN_TEST(test_timing_rejects_bare_mode_number);
+    RUN_TEST(test_timing_rejects_zero);
     RUN_TEST(test_compare_buffer_encoding);
     RUN_TEST(test_compare_buffer_all_zeros);
     RUN_TEST(test_compare_buffer_all_ones);

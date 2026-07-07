@@ -26,6 +26,10 @@ struct ArmPreconditions {
     bool frameValid;             // Current frame passed CRC + is fresh (< 100ms)
     uint8_t linkQuality;         // CRSF uplink LQ (0-100, 0 = link lost)
     bool batteryPresent;         // VBAT > threshold (hot-plug detection)
+    // Finding 3/5: LVC fail-closed fields
+    bool vbatValid;   // ADC reading is sane (not disconnected/shorted)
+    bool lvcCritical; // LVC level is CRITICAL — force disarm
+    bool configValid; // Config passed cross-param validation
 };
 
 struct SafetyConfig {
