@@ -16,7 +16,7 @@
 - [ ] Betaflight CLI dump → pinmap.h (Trip executes)
 - [ ] I2C scan + dual H3LIS331 driver
 - [ ] ICM-42688 SPI driver (gyro Z sign + accel)
-- [ ] Minimal LED status (BOOT/SAFE/ERROR blink codes)
+- [x] Minimal LED status (BOOT/SAFE/ERROR blink codes) — pure logic done, DMA driver BLOCKED
 
 ## P2: DShot Spike
 - [x] DShot300 frame packing + 4-bit CRC
