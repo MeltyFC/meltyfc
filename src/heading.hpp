@@ -55,7 +55,9 @@ float computeOmegaDifferential(float aOuter, float aInner, float drEff);
 float slewLimitOmega(float newOmega, float prevOmega, float maxSlew, float dt);
 
 // Integrate phase — wraps to [0, 2π)
-float integratePhase(float phase, float omega, float dt);
+// direction: +1.0 for CW, -1.0 for CCW (from SPIN_DIRECTION XOR inverted)
+// C2 fix: when inverted, physical rotation reverses — phase must track.
+float integratePhase(float phase, float omega, float dt, float direction = 1.0f);
 
 // Compute translation direction from stick X/Y (returns radians, 0 = forward)
 float computeTranslationAngle(float stickX, float stickY);

@@ -70,8 +70,9 @@ struct __attribute__((packed)) ConfigData {
     float motorAngle[4] = {0.0f, 120.0f, 240.0f, 0.0f}; // degrees
     uint8_t spinDirection = 0;                          // 0=CW, 1=CCW
     uint16_t maxRpm = 3200;
-    float rInner = 15.0f;           // mm
-    float rOuter = 28.0f;           // mm
+    float rInner = 15.0f;           // mm (H3LIS inner sensor radius)
+    float rOuter = 28.0f;           // mm (H3LIS outer sensor radius)
+    float rIcm = 10.0f;             // mm (ICM-42688 radius — needed for low-speed mode)
     float drEff = 13.0f;            // mm (derived, then cal-trimmed)
     float wheelDia = 40.0f;         // mm
     float wheelMountRadius = 85.0f; // mm

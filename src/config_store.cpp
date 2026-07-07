@@ -35,6 +35,8 @@ const ParamDef PARAM_REGISTRY[] = {
      PARAM_OFFSET(rInner)},
     {"R_OUTER", "mm", "Outer accel sensor radius", ParamType::FLOAT, ParamFlags::NONE, 1, 200, 28,
      PARAM_OFFSET(rOuter)},
+    {"R_ICM", "mm", "ICM-42688 radius from spin axis (for low-speed mode)", ParamType::FLOAT,
+     ParamFlags::NONE, 1, 200, 10, PARAM_OFFSET(rIcm)},
     {"DR_EFF", "mm", "Effective radius difference (calibrated)", ParamType::FLOAT, ParamFlags::NONE,
      0.1f, 200, 13, PARAM_OFFSET(drEff)},
     {"WHEEL_DIA", "mm", "Drive wheel diameter", ParamType::FLOAT, ParamFlags::NONE, 5, 200, 40,
@@ -348,6 +350,71 @@ uint32_t computeConfigCrc(const ConfigData& cfg) {
         crc = crc32_byte(crc, data[i]);
     }
     return crc ^ 0xFFFFFFFF;
+}
+
+// ============================================================================
+// Cross-param validation (Round 2 A1, A4, A8)
+// Fixes issues in-place (clamp/adjust) and reports what was wrong.
+// ============================================================================
+ConfigValidationResult validateConfig(ConfigData& cfg) {
+    ConfigValidationResult result = {};
+
+    // A1: THROTTLE_SPIN_MAX must be <= THROTTLE_CAP - margin
+    constexpr float SPIN_CAP_MARGIN = 0.05f;
+    if (cfg.throttleSpinMax > cfg.throttleCap - SPIN_CAP_MARGIN) {
+        cfg.throttleSpinMax = cfg.throttleCap - SPIN_CAP_MARGIN;
+        result.spinMaxExceedsCap = true;
+        result.issueCount++;
+    }
+
+    // R_INNER must be < R_OUTER
+    if (cfg.rInner >= cfg.rOuter) {
+        cfg.rInner = cfg.rOuter - 1.0f;
+        result.innerGtOuter = true;
+        result.issueCount++;
+    }
+
+    // LVC_WARN must be > LVC_CRIT
+    if (cfg.lvcWarnVolts <= cfg.lvcCritVolts) {
+        cfg.lvcWarnVolts = cfg.lvcCritVolts + 0.3f;
+        result.lvcWarnBelowCrit = true;
+        result.issueCount++;
+    }
+
+    // WINDOW_HALF must be <= 90°
+    if (cfg.windowHalf > 90.0f) {
+        cfg.windowHalf = 90.0f;
+        result.windowHalfTooLarge = true;
+        result.issueCount++;
+    }
+
+    // A4: Channel collision check
+    uint8_t channels[] = {cfg.chArm,  cfg.chSpin,   cfg.chTranslateX, cfg.chTranslateY,
+                          cfg.chTrim, cfg.chResync, cfg.chCreepForce};
+    constexpr int NUM_CH = sizeof(channels) / sizeof(channels[0]);
+    for (int i = 0; i < NUM_CH; i++) {
+        for (int j = i + 1; j < NUM_CH; j++) {
+            if (channels[i] == channels[j]) {
+                result.channelCollision = true;
+                result.issueCount++;
+                break;
+            }
+        }
+        if (result.channelCollision)
+            break;
+    }
+
+    // A8: NUM_DRIVE_MOTORS must be 2-4 (1 is broken for creep/translation)
+    if (cfg.numDriveMotors < 2 || cfg.numDriveMotors > 4) {
+        if (cfg.numDriveMotors < 2)
+            cfg.numDriveMotors = 2;
+        if (cfg.numDriveMotors > 4)
+            cfg.numDriveMotors = 4;
+        result.numMotorsInvalid = true;
+        result.issueCount++;
+    }
+
+    return result;
 }
 
 } // namespace melty

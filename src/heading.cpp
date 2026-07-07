@@ -29,12 +29,16 @@ float slewLimitOmega(float newOmega, float prevOmega, float maxSlew, float dt) {
     return newOmega;
 }
 
-float integratePhase(float phase, float omega, float dt) {
-    phase += omega * dt;
+float integratePhase(float phase, float omega, float dt, float direction) {
+    // C2: direction = +1.0 (CW) or -1.0 (CCW).
+    // When inverted, physical rotation reverses — direction flips so phase
+    // tracks the real world. omega is always positive (from sqrt), direction
+    // carries the sign.
+    phase += direction * omega * dt;
     // Wrap to [0, 2π)
-    phase = fmodf(phase, 2.0f * M_PI);
+    phase = fmodf(phase, 2.0f * static_cast<float>(M_PI));
     if (phase < 0.0f)
-        phase += 2.0f * M_PI;
+        phase += 2.0f * static_cast<float>(M_PI);
     return phase;
 }
 

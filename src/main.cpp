@@ -66,6 +66,7 @@ static void melty_setup() {
 
 static void melty_loop() {
     static uint32_t lastLoopUs = 0;
+    static bool firstLoop = true;
     const uint32_t nowUs = micros();
 
     // Enforce 2kHz loop rate
@@ -73,7 +74,18 @@ static void melty_loop() {
         return;
     }
 
-    const float dt = static_cast<float>(nowUs - lastLoopUs) * 1e-6f;
+    // D2: First-iteration dt guard — lastLoopUs starts at 0, so first dt
+    // would be seconds-since-boot → huge integration step → garbage phase.
+    float dt;
+    if (firstLoop) {
+        dt = static_cast<float>(LOOP_PERIOD_US) * 1e-6f; // Use nominal dt
+        firstLoop = false;
+    } else {
+        dt = static_cast<float>(nowUs - lastLoopUs) * 1e-6f;
+        // Clamp dt to prevent integration blowup after stalls
+        if (dt > 0.01f)
+            dt = static_cast<float>(LOOP_PERIOD_US) * 1e-6f;
+    }
     lastLoopUs = nowUs;
 
     // --- Sensor read (fresh-data flagged) ---
