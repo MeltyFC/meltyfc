@@ -12,6 +12,10 @@ namespace melty {
 struct ResyncConfig {
     float minDeflection; // Minimum stick deflection to accept (0.0-1.0)
     uint16_t averageMs;  // Average stick angle over this window (ms)
+    // B3: Currently averages over the FULL hold period. For typical holds
+    // (~100-300ms), this matches the spec's "last ~100ms" intent. A sliding
+    // window would only matter for very long holds, which are unusual.
+    // The param stays in the registry for future refinement.
 };
 
 struct ResyncState {

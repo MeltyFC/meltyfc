@@ -316,6 +316,38 @@ void test_cli_format_get() {
 // ============================================================================
 // Main
 // ============================================================================
+// ============================================================================
+// B5: CLI line buffer bounding
+// ============================================================================
+
+void test_line_buffer_basic() {
+    CliLineBuffer lb;
+    lb.init();
+    const char* input = "get WINDOW_HALF\n";
+    bool ready = false;
+    for (int i = 0; input[i]; i++) {
+        ready = lb.feed(input[i]);
+    }
+    TEST_ASSERT_TRUE(ready);
+    TEST_ASSERT_EQUAL_STRING("get WINDOW_HALF", lb.line());
+}
+
+void test_line_buffer_overflow_discards() {
+    CliLineBuffer lb;
+    lb.init();
+    // Feed 200 characters (exceeds CLI_MAX_LINE=128), then newline
+    for (int i = 0; i < 200; i++) {
+        lb.feed('x');
+    }
+    bool ready = lb.feed('\n');
+    TEST_ASSERT_FALSE(ready); // Overflowed line is discarded
+    // Buffer is reset for next line
+    lb.feed('a');
+    ready = lb.feed('\n');
+    TEST_ASSERT_TRUE(ready);
+    TEST_ASSERT_EQUAL_STRING("a", lb.line());
+}
+
 int main() {
     UNITY_BEGIN();
 
@@ -370,6 +402,10 @@ int main() {
     RUN_TEST(test_cli_version_output);
     RUN_TEST(test_cli_help_output);
     RUN_TEST(test_cli_format_get);
+
+    // B5: Line buffer
+    RUN_TEST(test_line_buffer_basic);
+    RUN_TEST(test_line_buffer_overflow_discards);
 
     return UNITY_END();
 }

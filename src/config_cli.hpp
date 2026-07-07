@@ -69,4 +69,54 @@ int formatVersion(char* buf, size_t bufLen);
 // Returns error message (nullptr on success).
 const char* executeSet(ConfigData& cfg, const char* name, const char* valueStr);
 
+// ============================================================================
+// B5: Bounded line accumulator for serial input
+// Collects characters until newline, then provides the complete line.
+// Overflow: discards excess characters until newline (never writes past buffer).
+// ============================================================================
+constexpr size_t CLI_MAX_LINE = 128;
+
+struct CliLineBuffer {
+    char buf[CLI_MAX_LINE];
+    uint8_t pos;
+    bool overflow;
+
+    void init() {
+        pos = 0;
+        overflow = false;
+        buf[0] = '\0';
+    }
+
+    // Feed one character. Returns true when a complete line is ready.
+    bool feed(char c) {
+        if (c == '\n' || c == '\r') {
+            if (pos == 0 && !overflow)
+                return false; // Ignore empty lines
+            buf[pos] = '\0';
+            bool wasOverflow = overflow;
+            overflow = false;
+            if (wasOverflow) {
+                pos = 0;
+                return false; // Discard overflowed line
+            }
+            return true; // Line ready in buf
+        }
+        if (pos < CLI_MAX_LINE - 1) {
+            buf[pos++] = c;
+        } else {
+            overflow = true; // Mark overflow, keep eating until newline
+        }
+        return false;
+    }
+
+    // Get the completed line (valid after feed returns true)
+    char* line() { return buf; }
+
+    // Reset after consuming the line
+    void reset() {
+        pos = 0;
+        overflow = false;
+    }
+};
+
 } // namespace melty

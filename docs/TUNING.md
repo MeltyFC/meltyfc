@@ -118,6 +118,15 @@ Check wheel preload, tire condition, contact surface.
 - `LVC_CRIT_VOLTS` (default 3.0V/cell): critical — auto spin-down over 2 seconds
 - `CELL_COUNT` (default 0 = auto-detect): override if auto-detect fails
 
+**B4: Auto cell-count ambiguity warning:**
+Auto-detection works by measuring battery voltage at boot and dividing by 4.2V:
+- 3S (3 cells): 9.0V–12.6V → detected as 3S when 10.5V–12.6V
+- 4S (4 cells): 12.0V–16.8V → detected as 4S when 14.0V–16.8V
+- **Danger zone: 12.0V–13.0V** — this is both a full 3S AND a dying 4S.
+  If you run 4S, set `CELL_COUNT 4` explicitly. Auto-detect only runs at boot.
+  Running a 4S pack detected as 3S means LVC fires too late — possible cell damage.
+- If auto-detect reads below 9.0V (no battery on USB), cell count = 0 and LVC is disabled.
+
 ## LED Configuration
 
 - `LED_COUNT`: number of WS2812 LEDs on the strip

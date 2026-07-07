@@ -120,10 +120,21 @@ static void melty_loop() {
     // --- RC link poll ---
     // crsf_update();
 
+    // --- USB debug streaming (S3: guarded writes) ---
+    // if (debugStreamEnabled && Serial && Serial.availableForWrite() >= 64) {
+    //     // Only write if buffer has room — never block the loop
+    //     Serial.printf("%.1f,%.1f,%d\n", omegaToRpm(omega), phase, (int)armState);
+    // }
+
     // --- Config CLI (only when USB connected + safe) ---
+    // S3 contract: ALL Serial writes in the CLI handler are guarded:
+    //   if (!Serial || Serial.availableForWrite() < len) return;
+    // Default: debug streaming OFF, enabled via `stream on` CLI command.
     // config_cli_update();
 
     // --- Feed watchdog ---
+    // R3-4 contract: IWDG started AFTER init, BEFORE arming is reachable.
+    // Arming gated on watchdog-running.
     // IWatchdog.reload();
 }
 

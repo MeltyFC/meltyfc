@@ -66,3 +66,28 @@
 
 // USB
 // STM32F405 uses PA11 (USB_DM) / PA12 (USB_DP) — fixed by silicon
+
+// ============================================================================
+// R3-3: CCM RAM guard — DMA buffers MUST NOT reside in CCM
+// Call this in every driver init with each DMA buffer pointer.
+// ============================================================================
+#define ASSERT_NOT_CCM(ptr)                                                                        \
+    do {                                                                                           \
+        if (((uint32_t)(ptr) & 0xFFFF0000u) == 0x10000000u) {                                      \
+            /* DMA buffer in CCM RAM — silent corruption guaranteed */                           \
+            while (1)                                                                              \
+                ;                                                                                  \
+        }                                                                                          \
+    } while (0)
+
+// ============================================================================
+// R3-6: NVIC Priority Table — set explicitly at init, not left to defaults.
+// Lower number = higher priority. F405 has 4 bits = 16 levels.
+// ============================================================================
+#define NVIC_PRIO_MOTOR_DMA 1 // DShot + bidir turnaround — highest
+#define NVIC_PRIO_LED_DMA 3   // WS2812 — high but below motors
+#define NVIC_PRIO_I2C 5       // H3LIS331 sensor reads
+#define NVIC_PRIO_SPI 5       // ICM-42688 + SPI flash
+#define NVIC_PRIO_UART 7      // CRSF
+#define NVIC_PRIO_USB 10      // CDC serial — low, never preempts DMA
+#define NVIC_PRIO_SYSTICK 15  // Lowest — timing only
