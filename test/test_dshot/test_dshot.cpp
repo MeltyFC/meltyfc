@@ -1,8 +1,8 @@
 // MeltyFC — DShot Protocol Unit Tests
 // Frame packing, CRC, GCR decode, timing calculations.
 
-#include <unity.h>
 #include "dshot_common.hpp"
+#include <unity.h>
 
 using namespace melty::dshot;
 
@@ -46,7 +46,7 @@ void test_pack_without_telemetry_bit() {
 }
 
 void test_pack_clamps_throttle() {
-    uint16_t frame = packFrame(5000, false);  // Over 2047
+    uint16_t frame = packFrame(5000, false); // Over 2047
     uint16_t throttle = (frame >> 5) & 0x7FF;
     TEST_ASSERT_EQUAL_UINT16(2047, throttle);
 }
@@ -58,13 +58,13 @@ void test_crc_validates_correct() {
 
 void test_crc_rejects_corrupt() {
     uint16_t frame = packFrame(500, true);
-    frame ^= 0x0001;  // Flip a CRC bit
+    frame ^= 0x0001; // Flip a CRC bit
     TEST_ASSERT_FALSE(validateCrc(frame));
 }
 
 void test_crc_rejects_data_corruption() {
     uint16_t frame = packFrame(500, true);
-    frame ^= 0x0020;  // Flip a data bit
+    frame ^= 0x0020; // Flip a data bit
     TEST_ASSERT_FALSE(validateCrc(frame));
 }
 
@@ -86,15 +86,15 @@ void test_timing_dshot300_84mhz() {
 void test_compare_buffer_encoding() {
     auto timing = calculateTiming(84000000, 300000);
     uint16_t buf[16];
-    uint16_t frame = 0xAAAA;  // Alternating bits
+    uint16_t frame = 0xAAAA; // Alternating bits
 
     encodeToCompareBuffer(frame, timing, buf);
 
     // MSB first: bit 15 = 1, bit 14 = 0, bit 13 = 1, ...
-    TEST_ASSERT_EQUAL_UINT16(timing.bit1HighTicks, buf[0]);   // bit 15 = 1
-    TEST_ASSERT_EQUAL_UINT16(timing.bit0HighTicks, buf[1]);   // bit 14 = 0
-    TEST_ASSERT_EQUAL_UINT16(timing.bit1HighTicks, buf[2]);   // bit 13 = 1
-    TEST_ASSERT_EQUAL_UINT16(timing.bit0HighTicks, buf[3]);   // bit 12 = 0
+    TEST_ASSERT_EQUAL_UINT16(timing.bit1HighTicks, buf[0]); // bit 15 = 1
+    TEST_ASSERT_EQUAL_UINT16(timing.bit0HighTicks, buf[1]); // bit 14 = 0
+    TEST_ASSERT_EQUAL_UINT16(timing.bit1HighTicks, buf[2]); // bit 13 = 1
+    TEST_ASSERT_EQUAL_UINT16(timing.bit0HighTicks, buf[3]); // bit 12 = 0
 }
 
 void test_compare_buffer_all_zeros() {
@@ -175,7 +175,7 @@ void test_gcr_no_duplicate_mappings() {
 
 void test_erpm_period_extraction() {
     // Decoded frame: period in upper 12 bits, CRC in lower 4
-    uint16_t frame = (1234 << 4) | 0x05;  // Period=1234, CRC=5
+    uint16_t frame = (1234 << 4) | 0x05; // Period=1234, CRC=5
     TEST_ASSERT_EQUAL_UINT16(1234, extractErpmPeriod(frame));
 }
 
@@ -206,7 +206,7 @@ void test_telemetry_crc_valid() {
 void test_telemetry_crc_invalid() {
     uint16_t period = 1234;
     uint8_t crc = (period ^ (period >> 4) ^ (period >> 8)) & 0x0F;
-    uint16_t frame = (period << 4) | (crc ^ 0x01);  // Corrupt CRC
+    uint16_t frame = (period << 4) | (crc ^ 0x01); // Corrupt CRC
     TEST_ASSERT_FALSE(validateTelemetryCrc(frame));
 }
 

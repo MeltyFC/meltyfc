@@ -7,7 +7,11 @@
 //   - DMA drivers (DShot, WS2812) run below the loop
 //   - Config CLI processed when USB connected + disarmed
 
+#ifdef ARDUINO
 #include <Arduino.h>
+#else
+#include "stm32f4xx_hal.h"
+#endif
 
 #ifdef TARGET_CRUX_F405HD
 #include "target.h"
@@ -38,10 +42,17 @@ namespace melty {
 // void config_cli_update();
 }
 
-void setup() {
-    // USB CDC for config CLI + debug streaming
-    Serial.begin(115200);
+// --- Platform-agnostic timing helpers ---
+#ifndef ARDUINO
+static inline uint32_t micros_hal() {
+    // HAL_GetTick() returns ms; use DWT cycle counter for µs resolution
+    // For now, ms*1000 is sufficient for the skeleton
+    return HAL_GetTick() * 1000;
+}
+#define micros() micros_hal()
+#endif
 
+static void melty_setup() {
     // TODO P1: sensor init (I2C scan, H3LIS, ICM)
     // TODO P1: LED init (minimal BOOT/SAFE/ERROR blink codes)
     // TODO P2: DShot init (bidir spike)
@@ -53,7 +64,7 @@ void setup() {
     // IWatchdog.begin(WATCHDOG_MS * 1000);
 }
 
-void loop() {
+static void melty_loop() {
     static uint32_t lastLoopUs = 0;
     const uint32_t nowUs = micros();
 
@@ -62,7 +73,7 @@ void loop() {
         return;
     }
 
-    const float dt = (nowUs - lastLoopUs) * 1e-6f;
+    const float dt = static_cast<float>(nowUs - lastLoopUs) * 1e-6f;
     lastLoopUs = nowUs;
 
     // --- Sensor read (fresh-data flagged) ---
@@ -89,3 +100,21 @@ void loop() {
     // --- Feed watchdog ---
     // IWatchdog.reload();
 }
+
+#ifdef ARDUINO
+void setup() {
+    melty_setup();
+}
+void loop() {
+    melty_loop();
+}
+#else
+int main(void) {
+    HAL_Init();
+    SystemClock_Config(); // Provided by target board bindings
+    melty_setup();
+    while (1) {
+        melty_loop();
+    }
+}
+#endif

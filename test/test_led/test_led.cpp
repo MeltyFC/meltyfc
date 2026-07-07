@@ -1,8 +1,8 @@
 // MeltyFC — LED State Machine Unit Tests
 
-#include <unity.h>
 #include "led_beacon.hpp"
 #include <cmath>
+#include <unity.h>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846f
@@ -101,10 +101,10 @@ void test_strobe_duty_cycle() {
 void test_blink_code_pattern() {
     // 2 blinks: on 200ms, off 200ms, on 200ms, off 200ms, pause 1000ms = 1800ms total
     TEST_ASSERT_TRUE(ledBlinkCode(0, 2, 200, 200, 1000));     // First blink on
-    TEST_ASSERT_FALSE(ledBlinkCode(250, 2, 200, 200, 1000));   // First gap
-    TEST_ASSERT_TRUE(ledBlinkCode(400, 2, 200, 200, 1000));    // Second blink on
-    TEST_ASSERT_FALSE(ledBlinkCode(650, 2, 200, 200, 1000));   // Second gap
-    TEST_ASSERT_FALSE(ledBlinkCode(1000, 2, 200, 200, 1000));  // Pause
+    TEST_ASSERT_FALSE(ledBlinkCode(250, 2, 200, 200, 1000));  // First gap
+    TEST_ASSERT_TRUE(ledBlinkCode(400, 2, 200, 200, 1000));   // Second blink on
+    TEST_ASSERT_FALSE(ledBlinkCode(650, 2, 200, 200, 1000));  // Second gap
+    TEST_ASSERT_FALSE(ledBlinkCode(1000, 2, 200, 200, 1000)); // Pause
 }
 
 // ============================================================================
@@ -142,12 +142,13 @@ void test_stationary_safe_produces_color() {
 
     LedConfig cfg = defaultCfg();
     RGB leds[12];
-    ledComputeStationary(sm, cfg, 1500, leds);  // Mid-breathe
+    ledComputeStationary(sm, cfg, 1500, leds); // Mid-breathe
 
     // At least some LED should have nonzero blue (safe = dim blue breathe)
     bool anyBlue = false;
     for (int i = 0; i < 12; i++) {
-        if (leds[i].b > 0) anyBlue = true;
+        if (leds[i].b > 0)
+            anyBlue = true;
     }
     TEST_ASSERT_TRUE(anyBlue);
 }
@@ -159,7 +160,7 @@ void test_stationary_failsafe_all_same() {
 
     LedConfig cfg = defaultCfg();
     RGB leds[12];
-    ledComputeStationary(sm, cfg, 50, leds);  // During strobe-on
+    ledComputeStationary(sm, cfg, 50, leds); // During strobe-on
 
     // All LEDs should be the same (all red or all off)
     for (int i = 1; i < 12; i++) {

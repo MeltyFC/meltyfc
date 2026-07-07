@@ -1,7 +1,7 @@
 // MeltyFC — Safety & Arming Unit Tests
 
-#include <unity.h>
 #include "safety.hpp"
+#include <unity.h>
 
 using namespace melty;
 
@@ -52,13 +52,13 @@ void test_cannot_arm_switch_not_high() {
 // ============================================================================
 
 void test_boot_to_disarmed() {
-    ArmPreconditions pre = {true, true, true, true, false};  // Switch LOW
+    ArmPreconditions pre = {true, true, true, true, false}; // Switch LOW
     auto state = updateArmState(ArmState::BOOT, pre, 0, 500);
     TEST_ASSERT_EQUAL(ArmState::DISARMED, state);
 }
 
 void test_boot_stays_boot_switch_high() {
-    ArmPreconditions pre = {false, true, true, true, true};  // Switch HIGH, never seen LOW
+    ArmPreconditions pre = {false, true, true, true, true}; // Switch HIGH, never seen LOW
     auto state = updateArmState(ArmState::BOOT, pre, 0, 500);
     TEST_ASSERT_EQUAL(ArmState::BOOT, state);
 }
@@ -69,13 +69,13 @@ void test_disarmed_to_armed() {
 }
 
 void test_armed_to_disarmed_switch_low() {
-    ArmPreconditions pre = {true, true, true, true, false};  // Switch LOW
+    ArmPreconditions pre = {true, true, true, true, false}; // Switch LOW
     auto state = updateArmState(ArmState::ARMED, pre, 0, 500);
     TEST_ASSERT_EQUAL(ArmState::DISARMED, state);
 }
 
 void test_failsafe_on_link_loss() {
-    auto state = updateArmState(ArmState::ARMED, allGood(), 600, 500);  // 600ms > 500ms
+    auto state = updateArmState(ArmState::ARMED, allGood(), 600, 500); // 600ms > 500ms
     TEST_ASSERT_EQUAL(ArmState::FAILSAFE, state);
 }
 
@@ -94,13 +94,13 @@ void test_failsafe_recovery() {
 }
 
 void test_sensor_fault_to_error() {
-    ArmPreconditions pre = {true, true, true, false, true};  // Sensors unhealthy
+    ArmPreconditions pre = {true, true, true, false, true}; // Sensors unhealthy
     auto state = updateArmState(ArmState::ARMED, pre, 0, 500);
     TEST_ASSERT_EQUAL(ArmState::ERROR, state);
 }
 
 void test_error_recovery() {
-    ArmPreconditions pre = {true, true, true, true, false};  // Sensors back + switch LOW
+    ArmPreconditions pre = {true, true, true, true, false}; // Sensors back + switch LOW
     auto state = updateArmState(ArmState::ERROR, pre, 0, 500);
     TEST_ASSERT_EQUAL(ArmState::DISARMED, state);
 }

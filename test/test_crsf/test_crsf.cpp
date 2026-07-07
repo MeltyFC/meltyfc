@@ -1,9 +1,9 @@
 // MeltyFC — CRSF Protocol Unit Tests
 
-#include <unity.h>
 #include "crsf.hpp"
-#include <cstring>
 #include <cmath>
+#include <cstring>
+#include <unity.h>
 
 using namespace melty;
 
@@ -17,7 +17,7 @@ void test_crc8_zero() {
 
 void test_crc8_known_vector() {
     // Known test: CRC8/DVB-S2 of "123456789" = 0xBC
-    uint8_t data[] = {0x31,0x32,0x33,0x34,0x35,0x36,0x37,0x38,0x39};
+    uint8_t data[] = {0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39};
     TEST_ASSERT_EQUAL_HEX8(0xBC, crc8DvbS2Block(data, 9));
 }
 
@@ -50,7 +50,7 @@ void test_parser_rejects_bad_length() {
     CrsfParser parser;
     crsfParserInit(parser);
     crsfParserFeed(parser, CRSF_SYNC_BYTE);
-    crsfParserFeed(parser, 0);  // Length 0 = invalid
+    crsfParserFeed(parser, 0); // Length 0 = invalid
     TEST_ASSERT_EQUAL(CrsfParserState::SYNC, parser.state);
 }
 
@@ -58,7 +58,7 @@ void test_parser_rejects_oversized_length() {
     CrsfParser parser;
     crsfParserInit(parser);
     crsfParserFeed(parser, CRSF_SYNC_BYTE);
-    crsfParserFeed(parser, 63);  // Too large
+    crsfParserFeed(parser, 63); // Too large
     TEST_ASSERT_EQUAL(CrsfParserState::SYNC, parser.state);
 }
 
@@ -72,13 +72,13 @@ void test_parser_complete_frame() {
     CrsfParser parser;
     crsfParserInit(parser);
 
-    crsfParserFeed(parser, CRSF_SYNC_BYTE);   // sync
-    crsfParserFeed(parser, 5);                  // length = type(1) + payload(3) + crc(1) = 5
-    crsfParserFeed(parser, 0x21);               // type
+    crsfParserFeed(parser, CRSF_SYNC_BYTE); // sync
+    crsfParserFeed(parser, 5);              // length = type(1) + payload(3) + crc(1) = 5
+    crsfParserFeed(parser, 0x21);           // type
     crsfParserFeed(parser, 'O');
     crsfParserFeed(parser, 'K');
     crsfParserFeed(parser, 0);
-    bool result = crsfParserFeed(parser, crc);  // CRC
+    bool result = crsfParserFeed(parser, crc); // CRC
 
     TEST_ASSERT_TRUE(result);
 }
@@ -88,8 +88,8 @@ void test_parser_bad_crc_rejected() {
     crsfParserInit(parser);
 
     crsfParserFeed(parser, CRSF_SYNC_BYTE);
-    crsfParserFeed(parser, 3);                  // length
-    crsfParserFeed(parser, 0x21);               // type
+    crsfParserFeed(parser, 3);    // length
+    crsfParserFeed(parser, 0x21); // type
     crsfParserFeed(parser, 'X');
     bool result = crsfParserFeed(parser, 0xFF); // Wrong CRC
 
@@ -151,7 +151,7 @@ void test_build_flight_mode_truncates_long_text() {
     uint8_t buf[32];
     size_t len = crsfBuildFlightMode(buf, sizeof(buf), "THIS IS A VERY LONG MODE STRING");
     TEST_ASSERT_GREATER_THAN(0, len);
-    TEST_ASSERT_LESS_THAN(25, len);  // Should be truncated
+    TEST_ASSERT_LESS_THAN(25, len); // Should be truncated
 }
 
 void test_build_battery() {

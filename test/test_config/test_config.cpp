@@ -1,11 +1,11 @@
 // MeltyFC — Config Store + CLI Unit Tests
 
-#include <unity.h>
-#include "config_store.hpp"
 #include "config_cli.hpp"
+#include "config_store.hpp"
 #include "param_registry.h"
-#include <cstring>
 #include <cstdio>
+#include <cstring>
+#include <unity.h>
 
 using namespace melty;
 
@@ -38,9 +38,8 @@ void test_registry_all_params_have_names() {
 void test_registry_no_duplicate_names() {
     for (size_t i = 0; i < PARAM_REGISTRY_SIZE; i++) {
         for (size_t j = i + 1; j < PARAM_REGISTRY_SIZE; j++) {
-            TEST_ASSERT_NOT_EQUAL_MESSAGE(0,
-                strcmp(PARAM_REGISTRY[i].name, PARAM_REGISTRY[j].name),
-                PARAM_REGISTRY[i].name);
+            TEST_ASSERT_NOT_EQUAL_MESSAGE(0, strcmp(PARAM_REGISTRY[i].name, PARAM_REGISTRY[j].name),
+                                          PARAM_REGISTRY[i].name);
         }
     }
 }

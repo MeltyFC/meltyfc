@@ -1,9 +1,9 @@
 // MeltyFC — Heading Engine Unit Tests
 // Tests differential omega, phase integration, motor output, trim, RPM hold.
 
-#include <unity.h>
 #include "heading.hpp"
 #include <cmath>
+#include <unity.h>
 
 using namespace melty;
 
@@ -21,7 +21,7 @@ void test_omega_differential_basic() {
 void test_omega_differential_hit_rejection() {
     // Hit adds 200g common-mode to BOTH sensors — omega should not change
     float omegaClean = computeOmegaDifferential(100.0f, 50.0f, 0.013f);
-    float omegaHit   = computeOmegaDifferential(300.0f, 250.0f, 0.013f);
+    float omegaHit = computeOmegaDifferential(300.0f, 250.0f, 0.013f);
     TEST_ASSERT_FLOAT_WITHIN(0.1f, omegaClean, omegaHit);
 }
 
@@ -155,7 +155,7 @@ void test_trim_deadband() {
 }
 
 void test_trim_full_deflection() {
-    TrimConfig cfg = {15.0f, 360.0f, 0.0f};  // Linear (no expo)
+    TrimConfig cfg = {15.0f, 360.0f, 0.0f}; // Linear (no expo)
     float rate = computeTrimRate(1.0f, cfg);
     TEST_ASSERT_FLOAT_WITHIN(1.0f, 360.0f, rate);
 }
@@ -173,7 +173,7 @@ void test_trim_negative() {
 void test_rpm_hold_disabled() {
     RpmHoldConfig cfg = {false, 2800.0f, 0.002f, 0.5f};
     float throttle = computeRpmHold(2500.0f, 2800.0f, 0.6f, cfg);
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.6f, throttle);  // Passthrough
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.6f, throttle); // Passthrough
 }
 
 void test_rpm_hold_below_target() {
@@ -186,7 +186,7 @@ void test_rpm_hold_below_target() {
 void test_rpm_hold_at_target() {
     RpmHoldConfig cfg = {true, 2800.0f, 0.002f, 0.5f};
     float throttle = computeRpmHold(2800.0f, 2800.0f, 0.6f, cfg);
-    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.5f, throttle);  // Feedforward only
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.5f, throttle); // Feedforward only
 }
 
 // ============================================================================
@@ -206,7 +206,7 @@ void test_hit_not_detected() {
 // ============================================================================
 
 void test_rpm_to_omega() {
-    float omega = rpmToOmega(60.0f);  // 60 RPM = 1 rev/s = 2π rad/s
+    float omega = rpmToOmega(60.0f); // 60 RPM = 1 rev/s = 2π rad/s
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 2.0f * M_PI, omega);
 }
 

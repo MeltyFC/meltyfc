@@ -1,13 +1,13 @@
 // MeltyFC — Creep, Resync, Hit Logger, LVC, Blackbox Unit Tests
 
-#include <unity.h>
+#include "blackbox.hpp"
 #include "creep.hpp"
-#include "resync.hpp"
 #include "hitlog.hpp"
 #include "lvc.hpp"
-#include "blackbox.hpp"
-#include <cstring>
+#include "resync.hpp"
 #include <cmath>
+#include <cstring>
+#include <unity.h>
 
 using namespace melty;
 
@@ -120,7 +120,7 @@ void test_resync_below_threshold_cancels() {
     // Hold with tiny deflection (below minDeflection=0.3)
     resyncUpdate(state, true, 0.1f, 0.0f, 100, cfg);
     float offset = resyncUpdate(state, false, 0.0f, 0.0f, 200, cfg);
-    TEST_ASSERT_EQUAL_FLOAT(0.0f, offset);  // Cancelled
+    TEST_ASSERT_EQUAL_FLOAT(0.0f, offset); // Cancelled
 }
 
 void test_resync_stick_angle() {
@@ -217,14 +217,14 @@ void test_lvc_update_ok() {
 void test_lvc_update_warn() {
     LvcState state = {};
     LvcConfig cfg = {3.3f, 3.0f, 3};
-    LvcLevel level = lvcUpdate(state, 9.6f, cfg);  // 3.2V/cell
+    LvcLevel level = lvcUpdate(state, 9.6f, cfg); // 3.2V/cell
     TEST_ASSERT_EQUAL(LvcLevel::WARN, level);
 }
 
 void test_lvc_update_critical() {
     LvcState state = {};
     LvcConfig cfg = {3.3f, 3.0f, 3};
-    LvcLevel level = lvcUpdate(state, 8.7f, cfg);  // 2.9V/cell
+    LvcLevel level = lvcUpdate(state, 8.7f, cfg); // 2.9V/cell
     TEST_ASSERT_EQUAL(LvcLevel::CRITICAL, level);
     TEST_ASSERT_TRUE(state.spinDownActive);
 }
@@ -241,7 +241,7 @@ void test_lvc_spindown_ramp() {
 
 void test_lvc_auto_detect_sticks() {
     LvcState state = {};
-    LvcConfig cfg = {3.3f, 3.0f, 0};  // Auto-detect
+    LvcConfig cfg = {3.3f, 3.0f, 0}; // Auto-detect
 
     // First reading at 11.1V → auto-detect 3S
     lvcUpdate(state, 11.1f, cfg);
@@ -249,7 +249,7 @@ void test_lvc_auto_detect_sticks() {
 
     // Voltage drops but cell count stays
     lvcUpdate(state, 9.0f, cfg);
-    TEST_ASSERT_EQUAL_UINT8(3, state.detectedCells);  // Doesn't re-detect
+    TEST_ASSERT_EQUAL_UINT8(3, state.detectedCells); // Doesn't re-detect
 }
 
 // ============================================================================
@@ -258,7 +258,7 @@ void test_lvc_auto_detect_sticks() {
 
 void test_blackbox_init() {
     BlackboxState state;
-    blackboxInit(state, 8 * 1024 * 1024, 4096);  // 8MB, 4K sectors
+    blackboxInit(state, 8 * 1024 * 1024, 4096); // 8MB, 4K sectors
     TEST_ASSERT_EQUAL_UINT32(0, state.writeOffset);
     TEST_ASSERT_FALSE(state.wrapped);
 }
@@ -273,7 +273,7 @@ void test_blackbox_capacity() {
 
 void test_blackbox_next_offset() {
     BlackboxState state;
-    blackboxInit(state, 240, 4096);  // Small flash for testing (10 records)
+    blackboxInit(state, 240, 4096); // Small flash for testing (10 records)
     uint32_t off1 = blackboxNextOffset(state);
     TEST_ASSERT_EQUAL_UINT32(0, off1);
     uint32_t off2 = blackboxNextOffset(state);
@@ -282,20 +282,20 @@ void test_blackbox_next_offset() {
 
 void test_blackbox_wraps() {
     BlackboxState state;
-    blackboxInit(state, 72, 4096);  // 3 records fit (72 / 24 = 3)
+    blackboxInit(state, 72, 4096); // 3 records fit (72 / 24 = 3)
 
-    blackboxNextOffset(state);  // 0 → writeOffset=24
+    blackboxNextOffset(state); // 0 → writeOffset=24
     TEST_ASSERT_FALSE(state.wrapped);
-    blackboxNextOffset(state);  // 24 → writeOffset=48
+    blackboxNextOffset(state); // 24 → writeOffset=48
     TEST_ASSERT_FALSE(state.wrapped);
-    blackboxNextOffset(state);  // 48 → writeOffset=72 >= 72 → wraps to 0
+    blackboxNextOffset(state); // 48 → writeOffset=72 >= 72 → wraps to 0
     TEST_ASSERT_TRUE(state.wrapped);
     TEST_ASSERT_EQUAL_UINT32(0, state.writeOffset);
 }
 
 void test_blackbox_stored() {
     BlackboxState state;
-    blackboxInit(state, 240, 4096);  // 10 records
+    blackboxInit(state, 240, 4096); // 10 records
 
     TEST_ASSERT_EQUAL_UINT32(0, blackboxStored(state));
     blackboxNextOffset(state);
@@ -308,9 +308,9 @@ void test_blackbox_read_offset() {
     BlackboxState state;
     blackboxInit(state, 240, 4096);
 
-    blackboxNextOffset(state);  // offset 0
-    blackboxNextOffset(state);  // offset 24
-    blackboxNextOffset(state);  // offset 48
+    blackboxNextOffset(state); // offset 0
+    blackboxNextOffset(state); // offset 24
+    blackboxNextOffset(state); // offset 48
 
     uint32_t offset;
     // Most recent (N=0) should be at 48
