@@ -342,6 +342,27 @@ void test_blackbox_format_header() {
     TEST_ASSERT_NOT_NULL(strstr(buf, "omega_rad_s"));
 }
 
+void test_resync_wrap_around_backward() {
+    // THE BUG: pointing backward (±180°), arithmetic mean of angles near ±π
+    // averages to ~0 (forward) instead of backward. Circular mean fixes this.
+    ResyncState state;
+    resyncInit(state);
+    ResyncConfig cfg = {0.3f, 100};
+
+    // Point stick backward-left and backward-right (straddling ±π wrap)
+    // stickX=-0.5, stickY=-0.866 → angle ≈ -2.618 rad (−150°)
+    // stickX=0.5, stickY=-0.866 → angle ≈ 2.618 rad (+150°)
+    // Circular mean should be π (backward), not 0 (forward)
+    resyncUpdate(state, true, -0.5f, -0.866f, 100, cfg);
+    resyncUpdate(state, true, 0.5f, -0.866f, 200, cfg);
+
+    float offset = resyncUpdate(state, false, 0.0f, 0.0f, 300, cfg);
+
+    // Should be near ±π (backward), NOT near 0 (forward)
+    // Allow wide tolerance — key assertion is |offset| > π/2
+    TEST_ASSERT_GREATER_THAN(1.5f, fabsf(offset)); // Must be > π/2
+}
+
 // ============================================================================
 // Main
 // ============================================================================
@@ -365,6 +386,7 @@ int main() {
     RUN_TEST(test_resync_below_threshold_cancels);
     RUN_TEST(test_resync_stick_angle);
     RUN_TEST(test_resync_stick_magnitude);
+    RUN_TEST(test_resync_wrap_around_backward);
 
     // Hit logger
     RUN_TEST(test_hitlog_init_empty);

@@ -23,9 +23,19 @@ namespace dshot {
 // DShot frame packing
 // ============================================================================
 
-// Pack a DShot frame: throttle (0–2047), telemetry bit, auto-CRC
-// Returns the 16-bit frame ready for timer compare-buffer encoding
+// Minimum throttle value — values 1-47 are DShot COMMANDS, not throttle
+static constexpr uint16_t DSHOT_MIN_THROTTLE = 48;
+
+// Compare buffer size: 16 data bits + 1 trailing idle
+static constexpr uint8_t DSHOT_COMPARE_BUF_SIZE = 17;
+
+// Pack a DShot frame: throttle (0 or 48–2047), telemetry bit, normal CRC
+// Values 1-47 are clamped to 48 to prevent accidental ESC commands
 uint16_t packFrame(uint16_t throttle, bool telemetryRequest);
+
+// Pack a bidirectional DShot frame: INVERTED CRC for bidir detection by ESC
+// ESC will only send telemetry when it receives inverted-CRC frames
+uint16_t packFrameBidir(uint16_t throttle, bool telemetryRequest);
 
 // Extract CRC from a packed frame
 uint8_t extractCrc(uint16_t frame);
@@ -58,8 +68,9 @@ struct DshotTimingConfig {
 // Calculate timing for a given timer clock frequency and DShot bitrate
 DshotTimingConfig calculateTiming(uint32_t timerClockHz, uint32_t dshotBitrate);
 
-// Encode a 16-bit frame into a 16-element compare-buffer for DMA
-// buf must have space for 16 entries (+ optional 1 reset entry)
+// Encode a 16-bit frame into a 17-element compare-buffer for DMA
+// buf must have space for DSHOT_COMPARE_BUF_SIZE (17) entries
+// Slot 17 is trailing zero to return line to idle
 void encodeToCompareBuffer(uint16_t frame, const DshotTimingConfig& timing, uint16_t* buf);
 
 // ============================================================================
@@ -75,10 +86,13 @@ extern const uint8_t GCR_DECODE_TABLE[32];
 uint16_t gcrDecode(uint32_t gcr21bit);
 
 // Extract eRPM period from decoded telemetry frame
-// Returns period in µs (12-bit), or 0 on invalid
+// EDT encoding: 3-bit exponent + 9-bit mantissa → period_us = mantissa << exponent
 uint16_t extractErpmPeriod(uint16_t decodedFrame);
 
-// Validate decoded telemetry CRC (4-bit XOR checksum)
+// Check if a decoded frame is EDT extended telemetry (not eRPM)
+bool isEdtExtendedFrame(uint16_t decodedFrame);
+
+// Validate decoded telemetry CRC (INVERTED 4-bit XOR checksum)
 bool validateTelemetryCrc(uint16_t decodedFrame);
 
 // Convert eRPM period to eRPM value

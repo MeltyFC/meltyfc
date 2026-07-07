@@ -11,7 +11,8 @@ namespace melty {
 
 void resyncInit(ResyncState& state) {
     state.held = false;
-    state.angleAccum = 0.0f;
+    state.sinAccum = 0.0f;
+    state.cosAccum = 0.0f;
     state.magAccum = 0.0f;
     state.sampleCount = 0;
     state.holdStartMs = 0;
@@ -33,26 +34,29 @@ float resyncUpdate(ResyncState& state, bool switchHeld, float stickX, float stic
     if (switchHeld && !state.held) {
         // Switch just pressed — start accumulating
         state.held = true;
-        state.angleAccum = 0.0f;
+        state.sinAccum = 0.0f;
+        state.cosAccum = 0.0f;
         state.magAccum = 0.0f;
         state.sampleCount = 0;
         state.holdStartMs = nowMs;
     }
 
     if (switchHeld && state.held) {
-        // Accumulate stick angle (only recent window matters for average)
         float angle = resyncStickAngle(stickX, stickY);
         float mag = resyncStickMagnitude(stickX, stickY);
 
-        // Use circular mean components to handle angle wrapping
-        state.angleAccum += angle;
+        // Circular mean: accumulate sin/cos components to handle wrapping
+        // correctly. Arithmetic mean of angles breaks at ±180° (the exact
+        // post-crash case this feature exists for).
+        state.sinAccum += sinf(angle);
+        state.cosAccum += cosf(angle);
         state.magAccum += mag;
         state.sampleCount++;
         return 0.0f; // Still held — no offset yet
     }
 
     if (!switchHeld && state.held) {
-        // Switch released — compute offset
+        // Switch released — compute offset via circular mean
         state.held = false;
 
         if (state.sampleCount == 0)
@@ -65,8 +69,8 @@ float resyncUpdate(ResyncState& state, bool switchHeld, float stickX, float stic
             return 0.0f; // Cancel — stick wasn't deflected enough
         }
 
-        // Average angle
-        float avgAngle = state.angleAccum / static_cast<float>(state.sampleCount);
+        // Circular mean: atan2(sum_sin, sum_cos)
+        float avgAngle = atan2f(state.sinAccum, state.cosAccum);
 
         return avgAngle;
     }

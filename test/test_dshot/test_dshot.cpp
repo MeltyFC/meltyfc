@@ -85,7 +85,7 @@ void test_timing_dshot300_84mhz() {
 
 void test_compare_buffer_encoding() {
     auto timing = calculateTiming(84000000, 300000);
-    uint16_t buf[16];
+    uint16_t buf[DSHOT_COMPARE_BUF_SIZE];
     uint16_t frame = 0xAAAA; // Alternating bits
 
     encodeToCompareBuffer(frame, timing, buf);
@@ -99,7 +99,7 @@ void test_compare_buffer_encoding() {
 
 void test_compare_buffer_all_zeros() {
     auto timing = calculateTiming(84000000, 300000);
-    uint16_t buf[16];
+    uint16_t buf[DSHOT_COMPARE_BUF_SIZE];
     encodeToCompareBuffer(0x0000, timing, buf);
 
     for (int i = 0; i < 16; i++) {
@@ -109,7 +109,7 @@ void test_compare_buffer_all_zeros() {
 
 void test_compare_buffer_all_ones() {
     auto timing = calculateTiming(84000000, 300000);
-    uint16_t buf[16];
+    uint16_t buf[DSHOT_COMPARE_BUF_SIZE];
     encodeToCompareBuffer(0xFFFF, timing, buf);
 
     for (int i = 0; i < 16; i++) {
@@ -174,9 +174,11 @@ void test_gcr_no_duplicate_mappings() {
 // ============================================================================
 
 void test_erpm_period_extraction() {
-    // Decoded frame: period in upper 12 bits, CRC in lower 4
-    uint16_t frame = (1234 << 4) | 0x05; // Period=1234, CRC=5
-    TEST_ASSERT_EQUAL_UINT16(1234, extractErpmPeriod(frame));
+    // EDT encoding: 3-bit exponent + 9-bit mantissa in upper 12 bits
+    // exponent=0, mantissa=200 → period = 200 << 0 = 200µs
+    uint16_t raw12 = (0 << 9) | 200;
+    uint16_t frame = (raw12 << 4) | 0x05; // CRC=5 (dummy)
+    TEST_ASSERT_EQUAL_UINT16(200, extractErpmPeriod(frame));
 }
 
 void test_period_to_erpm() {
@@ -196,17 +198,17 @@ void test_period_to_erpm_realistic() {
 }
 
 void test_telemetry_crc_valid() {
-    // Construct a frame with valid CRC
+    // Construct a frame with valid INVERTED CRC (bidir telemetry)
     uint16_t period = 1234;
-    uint8_t crc = (period ^ (period >> 4) ^ (period >> 8)) & 0x0F;
+    uint8_t crc = (~(period ^ (period >> 4) ^ (period >> 8))) & 0x0F;
     uint16_t frame = (period << 4) | crc;
     TEST_ASSERT_TRUE(validateTelemetryCrc(frame));
 }
 
 void test_telemetry_crc_invalid() {
     uint16_t period = 1234;
-    uint8_t crc = (period ^ (period >> 4) ^ (period >> 8)) & 0x0F;
-    uint16_t frame = (period << 4) | (crc ^ 0x01); // Corrupt CRC
+    uint8_t crc = (~(period ^ (period >> 4) ^ (period >> 8))) & 0x0F;
+    uint16_t frame = (period << 4) | (crc ^ 0x01); // Corrupt inverted CRC
     TEST_ASSERT_FALSE(validateTelemetryCrc(frame));
 }
 
@@ -215,10 +217,82 @@ void test_telemetry_crc_invalid() {
 // ============================================================================
 
 void test_beep_command_packs() {
+    // Commands (1-47) are clamped to DSHOT_MIN_THROTTLE (48) by packFrame
+    // to prevent accidental ESC reconfiguration. Direct command sending
+    // uses a different path (not packFrame).
     uint16_t frame = packFrame(DSHOT_CMD_BEEP1, false);
     TEST_ASSERT_TRUE(validateCrc(frame));
     uint16_t throttle = (frame >> 5) & 0x7FF;
-    TEST_ASSERT_EQUAL_UINT16(1, throttle);
+    TEST_ASSERT_EQUAL_UINT16(DSHOT_MIN_THROTTLE, throttle); // Clamped
+}
+
+void test_throttle_never_1_to_47() {
+    // Values 1-47 are ESC commands — packFrame MUST clamp to 48
+    for (uint16_t t = 1; t < DSHOT_MIN_THROTTLE; t++) {
+        uint16_t frame = packFrame(t, false);
+        uint16_t throttle = (frame >> 5) & 0x7FF;
+        TEST_ASSERT_EQUAL_UINT16(DSHOT_MIN_THROTTLE, throttle);
+    }
+    // 0 stays 0 (disarm)
+    uint16_t frame0 = packFrame(0, false);
+    uint16_t t0 = (frame0 >> 5) & 0x7FF;
+    TEST_ASSERT_EQUAL_UINT16(0, t0);
+    // 48 stays 48
+    uint16_t frame48 = packFrame(48, false);
+    uint16_t t48 = (frame48 >> 5) & 0x7FF;
+    TEST_ASSERT_EQUAL_UINT16(48, t48);
+}
+
+void test_bidir_crc_inverted() {
+    uint16_t normal = packFrame(1000, true);
+    uint16_t bidir = packFrameBidir(1000, true);
+    // Same throttle + telem, but CRC differs (inverted)
+    uint8_t normalCrc = normal & 0x0F;
+    uint8_t bidirCrc = bidir & 0x0F;
+    TEST_ASSERT_EQUAL_HEX8((~normalCrc) & 0x0F, bidirCrc);
+}
+
+void test_erpm_mantissa_exponent() {
+    // EDT encoding: 3-bit exponent + 9-bit mantissa
+    // period_us = mantissa << exponent
+    // Example: exponent=2, mantissa=100 → period = 100 << 2 = 400
+    uint16_t raw12 = (2 << 9) | 100;   // exp=2, mantissa=100
+    uint16_t frame = (raw12 << 4) | 0; // Fake CRC=0
+    uint16_t period = extractErpmPeriod(frame);
+    TEST_ASSERT_EQUAL_UINT16(400, period);
+
+    // exponent=0 → period = mantissa directly
+    raw12 = (0 << 9) | 250;
+    frame = (raw12 << 4) | 0;
+    period = extractErpmPeriod(frame);
+    TEST_ASSERT_EQUAL_UINT16(250, period);
+
+    // exponent=7, mantissa=1 → period = 128
+    raw12 = (7 << 9) | 1;
+    frame = (raw12 << 4) | 0;
+    period = extractErpmPeriod(frame);
+    TEST_ASSERT_EQUAL_UINT16(128, period);
+}
+
+void test_telemetry_crc_inverted() {
+    // Build a frame with known period and inverted CRC
+    uint16_t period = 0x123;
+    uint8_t crc = (~(period ^ (period >> 4) ^ (period >> 8))) & 0x0F;
+    uint16_t frame = (period << 4) | crc;
+    TEST_ASSERT_TRUE(validateTelemetryCrc(frame));
+
+    // Non-inverted CRC should fail
+    uint8_t wrongCrc = (period ^ (period >> 4) ^ (period >> 8)) & 0x0F;
+    uint16_t badFrame = (period << 4) | wrongCrc;
+    TEST_ASSERT_FALSE(validateTelemetryCrc(badFrame));
+}
+
+void test_compare_buffer_17th_slot() {
+    auto timing = calculateTiming(84000000, 300000);
+    uint16_t buf[DSHOT_COMPARE_BUF_SIZE];
+    encodeToCompareBuffer(0xFFFF, timing, buf);
+    // 17th slot must be 0 (trailing idle)
+    TEST_ASSERT_EQUAL_UINT16(0, buf[16]);
 }
 
 // ============================================================================
@@ -261,8 +335,15 @@ int main() {
     RUN_TEST(test_telemetry_crc_valid);
     RUN_TEST(test_telemetry_crc_invalid);
 
-    // Commands
+    // Commands + safety
     RUN_TEST(test_beep_command_packs);
+    RUN_TEST(test_throttle_never_1_to_47);
+
+    // Bidirectional DShot
+    RUN_TEST(test_bidir_crc_inverted);
+    RUN_TEST(test_erpm_mantissa_exponent);
+    RUN_TEST(test_telemetry_crc_inverted);
+    RUN_TEST(test_compare_buffer_17th_slot);
 
     return UNITY_END();
 }

@@ -160,27 +160,44 @@ const ParamDef* findParam(const char* name) {
 // ============================================================================
 float getParamFloat(const ConfigData& cfg, const ParamDef& def) {
     const uint8_t* base = reinterpret_cast<const uint8_t*>(&cfg);
-    const void* ptr = base + def.offset;
+    const uint8_t* ptr = base + def.offset;
 
+    // All reads use memcpy to avoid misaligned access on packed structs.
+    // Cortex-M4 FPU traps on misaligned VLDR/VSTR — reinterpret_cast crashes.
     switch (def.type) {
     case ParamType::UINT8:
-        return static_cast<float>(*reinterpret_cast<const uint8_t*>(ptr));
-    case ParamType::UINT16:
-        return static_cast<float>(*reinterpret_cast<const uint16_t*>(ptr));
-    case ParamType::UINT32:
-        return static_cast<float>(*reinterpret_cast<const uint32_t*>(ptr));
+        return static_cast<float>(*ptr);
+    case ParamType::UINT16: {
+        uint16_t v;
+        memcpy(&v, ptr, sizeof(v));
+        return static_cast<float>(v);
+    }
+    case ParamType::UINT32: {
+        uint32_t v;
+        memcpy(&v, ptr, sizeof(v));
+        return static_cast<float>(v);
+    }
     case ParamType::INT8:
         return static_cast<float>(*reinterpret_cast<const int8_t*>(ptr));
-    case ParamType::INT16:
-        return static_cast<float>(*reinterpret_cast<const int16_t*>(ptr));
-    case ParamType::INT32:
-        return static_cast<float>(*reinterpret_cast<const int32_t*>(ptr));
-    case ParamType::FLOAT:
-        return *reinterpret_cast<const float*>(ptr);
+    case ParamType::INT16: {
+        int16_t v;
+        memcpy(&v, ptr, sizeof(v));
+        return static_cast<float>(v);
+    }
+    case ParamType::INT32: {
+        int32_t v;
+        memcpy(&v, ptr, sizeof(v));
+        return static_cast<float>(v);
+    }
+    case ParamType::FLOAT: {
+        float v;
+        memcpy(&v, ptr, sizeof(v));
+        return v;
+    }
     case ParamType::BOOL:
-        return *reinterpret_cast<const uint8_t*>(ptr) ? 1.0f : 0.0f;
+        return (*ptr) ? 1.0f : 0.0f;
     case ParamType::ENUM:
-        return static_cast<float>(*reinterpret_cast<const uint8_t*>(ptr));
+        return static_cast<float>(*ptr);
     }
     return 0.0f;
 }
@@ -205,35 +222,45 @@ bool setParamFloat(ConfigData& cfg, const ParamDef& def, float value) {
         value = def.max;
 
     uint8_t* base = reinterpret_cast<uint8_t*>(&cfg);
-    void* ptr = base + def.offset;
+    uint8_t* ptr = base + def.offset;
 
+    // All writes use memcpy to avoid misaligned access on packed structs.
+    // See getParamFloat comment for rationale.
     switch (def.type) {
     case ParamType::UINT8:
-        *reinterpret_cast<uint8_t*>(ptr) = static_cast<uint8_t>(value);
+        *ptr = static_cast<uint8_t>(value);
         break;
-    case ParamType::UINT16:
-        *reinterpret_cast<uint16_t*>(ptr) = static_cast<uint16_t>(value);
+    case ParamType::UINT16: {
+        uint16_t v = static_cast<uint16_t>(value);
+        memcpy(ptr, &v, sizeof(v));
         break;
-    case ParamType::UINT32:
-        *reinterpret_cast<uint32_t*>(ptr) = static_cast<uint32_t>(value);
+    }
+    case ParamType::UINT32: {
+        uint32_t v = static_cast<uint32_t>(value);
+        memcpy(ptr, &v, sizeof(v));
         break;
+    }
     case ParamType::INT8:
         *reinterpret_cast<int8_t*>(ptr) = static_cast<int8_t>(value);
         break;
-    case ParamType::INT16:
-        *reinterpret_cast<int16_t*>(ptr) = static_cast<int16_t>(value);
+    case ParamType::INT16: {
+        int16_t v = static_cast<int16_t>(value);
+        memcpy(ptr, &v, sizeof(v));
         break;
-    case ParamType::INT32:
-        *reinterpret_cast<int32_t*>(ptr) = static_cast<int32_t>(value);
+    }
+    case ParamType::INT32: {
+        int32_t v = static_cast<int32_t>(value);
+        memcpy(ptr, &v, sizeof(v));
         break;
+    }
     case ParamType::FLOAT:
-        *reinterpret_cast<float*>(ptr) = value;
+        memcpy(ptr, &value, sizeof(value));
         break;
     case ParamType::BOOL:
-        *reinterpret_cast<uint8_t*>(ptr) = (value >= 0.5f) ? 1 : 0;
+        *ptr = (value >= 0.5f) ? 1 : 0;
         break;
     case ParamType::ENUM:
-        *reinterpret_cast<uint8_t*>(ptr) = static_cast<uint8_t>(value);
+        *ptr = static_cast<uint8_t>(value);
         break;
     }
     return true;

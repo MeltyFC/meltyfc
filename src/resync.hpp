@@ -16,7 +16,8 @@ struct ResyncConfig {
 
 struct ResyncState {
     bool held;            // Switch currently held
-    float angleAccum;     // Sum of stick angles (for averaging)
+    float sinAccum;       // Sin component accumulator (circular mean)
+    float cosAccum;       // Cos component accumulator (circular mean)
     float magAccum;       // Sum of stick magnitudes (for deflection check)
     uint32_t sampleCount; // Number of samples in accumulator
     uint32_t holdStartMs; // When switch was pressed

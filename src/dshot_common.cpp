@@ -31,13 +31,31 @@ bool validateCrc(uint16_t frame) {
 // ============================================================================
 
 uint16_t packFrame(uint16_t throttle, bool telemetryRequest) {
-    // Clamp throttle to 11 bits
+    // Clamp throttle to valid range: 0 (disarm) or 48-2047
+    // Values 1-47 are DShot COMMANDS (beep, reverse, save settings) —
+    // sending them as throttle reconfigures ESCs mid-fight.
     if (throttle > 2047)
         throttle = 2047;
+    if (throttle > 0 && throttle < DSHOT_MIN_THROTTLE)
+        throttle = DSHOT_MIN_THROTTLE;
 
     // Frame layout: [throttle:11][telem:1][crc:4]
     uint16_t frame = (throttle << 5) | (telemetryRequest ? (1 << 4) : 0);
     frame |= computeCrc(frame);
+    return frame;
+}
+
+uint16_t packFrameBidir(uint16_t throttle, bool telemetryRequest) {
+    // Bidirectional DShot: CRC is INVERTED so the ESC detects bidir capability
+    // and starts sending telemetry. Without inverted CRC, ESC treats as normal DShot.
+    if (throttle > 2047)
+        throttle = 2047;
+    if (throttle > 0 && throttle < DSHOT_MIN_THROTTLE)
+        throttle = DSHOT_MIN_THROTTLE;
+
+    uint16_t frame = (throttle << 5) | (telemetryRequest ? (1 << 4) : 0);
+    uint8_t crc = (~computeCrc(frame)) & 0x0F; // INVERTED
+    frame |= crc;
     return frame;
 }
 
@@ -57,9 +75,13 @@ DshotTimingConfig calculateTiming(uint32_t timerClockHz, uint32_t dshotBitrate) 
 }
 
 void encodeToCompareBuffer(uint16_t frame, const DshotTimingConfig& timing, uint16_t* buf) {
+    // 16 data bits + 1 trailing zero (17th slot) to ensure line returns to idle.
+    // Without the trailing zero, the last bit's level can persist — the ESC may
+    // misinterpret the next frame's start.
     for (int i = 15; i >= 0; i--) {
         buf[15 - i] = (frame & (1 << i)) ? timing.bit1HighTicks : timing.bit0HighTicks;
     }
+    buf[16] = 0; // Trailing idle — line returns low
 }
 
 // ============================================================================
@@ -100,15 +122,33 @@ uint16_t gcrDecode(uint32_t gcr21bit) {
 }
 
 uint16_t extractErpmPeriod(uint16_t decodedFrame) {
-    // Decoded frame: [period:12][crc:4]
-    // Period is in the upper 12 bits after CRC validation
-    return decodedFrame >> 4;
+    // Decoded frame after CRC validation: [period:12][crc:4]
+    // Period encoding (EDT/bidir DShot):
+    //   3-bit exponent + 9-bit mantissa: period_us = mantissa << exponent
+    // NOT a literal 12-bit µs value.
+    uint16_t raw12 = decodedFrame >> 4;
+    uint16_t exponent = raw12 >> 9;     // top 3 bits
+    uint16_t mantissa = raw12 & 0x01FF; // bottom 9 bits
+    return mantissa << exponent;
+}
+
+bool isEdtExtendedFrame(uint16_t decodedFrame) {
+    // EDT extended telemetry (temperature/voltage/current) shares the bidir
+    // channel. Type nibble in bits [11:8] of the 12-bit payload. When type != 0,
+    // the frame is extended telemetry, not an eRPM period. Detect and discard.
+    uint16_t raw12 = decodedFrame >> 4;
+    // In EDT, frame type 0 = eRPM. Nonzero = extended data.
+    // The exponent field doubles as the frame type indicator for EDT.
+    // For basic bidir (non-EDT), all frames are eRPM.
+    // For now, return false (no EDT filtering) — extend when EDT is implemented.
+    (void)raw12;
+    return false;
 }
 
 bool validateTelemetryCrc(uint16_t decodedFrame) {
-    // CRC is XOR of three nibbles of the 12-bit period
+    // Bidirectional DShot telemetry CRC is INVERTED (same as outgoing bidir frames)
     uint16_t period = decodedFrame >> 4;
-    uint8_t expectedCrc = (period ^ (period >> 4) ^ (period >> 8)) & 0x0F;
+    uint8_t expectedCrc = (~(period ^ (period >> 4) ^ (period >> 8))) & 0x0F;
     uint8_t actualCrc = decodedFrame & 0x0F;
     return expectedCrc == actualCrc;
 }
