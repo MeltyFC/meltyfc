@@ -2,7 +2,7 @@
 // Frame packing, CRC, GCR decode, timing calculations.
 
 #include <unity.h>
-#include "../src/dshot_common.hpp"
+#include "dshot_common.hpp"
 
 using namespace melty::dshot;
 

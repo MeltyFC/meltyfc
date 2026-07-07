@@ -1,0 +1,397 @@
+// MeltyFC — Creep, Resync, Hit Logger, LVC, Blackbox Unit Tests
+
+#include <unity.h>
+#include "creep.hpp"
+#include "resync.hpp"
+#include "hitlog.hpp"
+#include "lvc.hpp"
+#include "blackbox.hpp"
+#include <cstring>
+#include <cmath>
+
+using namespace melty;
+
+// ============================================================================
+// Creep mode
+// ============================================================================
+
+void test_creep_enters_below_threshold() {
+    CreepState state = {false, false};
+    CreepConfig cfg = {200, 50, 3};
+    TEST_ASSERT_TRUE(creepUpdateState(state, 100.0f, false, cfg));
+    TEST_ASSERT_TRUE(state.active);
+}
+
+void test_creep_stays_with_hysteresis() {
+    CreepState state = {true, false};
+    CreepConfig cfg = {200, 50, 3};
+    // At 220 RPM — above threshold but below threshold+hysteresis (250)
+    TEST_ASSERT_TRUE(creepUpdateState(state, 220.0f, false, cfg));
+    TEST_ASSERT_TRUE(state.active);
+}
+
+void test_creep_exits_above_hysteresis() {
+    CreepState state = {true, false};
+    CreepConfig cfg = {200, 50, 3};
+    // At 260 RPM — above threshold+hysteresis
+    TEST_ASSERT_FALSE(creepUpdateState(state, 260.0f, false, cfg));
+    TEST_ASSERT_FALSE(state.active);
+}
+
+void test_creep_force_switch() {
+    CreepState state = {false, false};
+    CreepConfig cfg = {200, 50, 3};
+    TEST_ASSERT_TRUE(creepUpdateState(state, 3000.0f, true, cfg));
+    TEST_ASSERT_TRUE(state.forcedBySwitch);
+}
+
+void test_creep_output_forward() {
+    float out[4] = {0};
+    creepComputeOutput(0.0f, 1.0f, 1.0f, 2, out);
+    // Both motors forward
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 1.0f, out[0]);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 1.0f, out[1]);
+}
+
+void test_creep_output_turn() {
+    float out[4] = {0};
+    creepComputeOutput(1.0f, 0.0f, 1.0f, 2, out);
+    // Left forward, right backward (pivot turn)
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 1.0f, out[0]);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, -1.0f, out[1]);
+}
+
+void test_creep_output_3motor_third_passive() {
+    float out[4] = {0};
+    creepComputeOutput(0.0f, 1.0f, 1.0f, 3, out);
+    TEST_ASSERT_EQUAL_FLOAT(0.0f, out[2]);
+}
+
+void test_creep_output_clamped() {
+    float out[4] = {0};
+    creepComputeOutput(1.0f, 1.0f, 0.5f, 2, out);
+    // left = 1+1=2 → clamped to 0.5
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.5f, out[0]);
+}
+
+// ============================================================================
+// Heading re-sync
+// ============================================================================
+
+void test_resync_init() {
+    ResyncState state;
+    resyncInit(state);
+    TEST_ASSERT_FALSE(state.held);
+    TEST_ASSERT_EQUAL_UINT32(0, state.sampleCount);
+}
+
+void test_resync_hold_accumulates() {
+    ResyncState state;
+    resyncInit(state);
+    ResyncConfig cfg = {0.3f, 100};
+
+    // Press switch, point stick forward
+    resyncUpdate(state, true, 0.0f, 1.0f, 100, cfg);
+    resyncUpdate(state, true, 0.0f, 1.0f, 200, cfg);
+    TEST_ASSERT_TRUE(state.held);
+    TEST_ASSERT_EQUAL_UINT32(2, state.sampleCount);
+}
+
+void test_resync_release_returns_angle() {
+    ResyncState state;
+    resyncInit(state);
+    ResyncConfig cfg = {0.3f, 100};
+
+    // Hold and point right (stickX=1, stickY=0 → angle ≈ π/2)
+    resyncUpdate(state, true, 1.0f, 0.0f, 100, cfg);
+    resyncUpdate(state, true, 1.0f, 0.0f, 200, cfg);
+
+    // Release
+    float offset = resyncUpdate(state, false, 0.0f, 0.0f, 300, cfg);
+    // Should return ~π/2 (atan2(1,0))
+    TEST_ASSERT_FLOAT_WITHIN(0.1f, 1.5708f, offset);
+}
+
+void test_resync_below_threshold_cancels() {
+    ResyncState state;
+    resyncInit(state);
+    ResyncConfig cfg = {0.3f, 100};
+
+    // Hold with tiny deflection (below minDeflection=0.3)
+    resyncUpdate(state, true, 0.1f, 0.0f, 100, cfg);
+    float offset = resyncUpdate(state, false, 0.0f, 0.0f, 200, cfg);
+    TEST_ASSERT_EQUAL_FLOAT(0.0f, offset);  // Cancelled
+}
+
+void test_resync_stick_angle() {
+    // Forward = atan2(0, 1) = 0
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, resyncStickAngle(0.0f, 1.0f));
+    // Right = atan2(1, 0) = π/2
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 1.5708f, resyncStickAngle(1.0f, 0.0f));
+}
+
+void test_resync_stick_magnitude() {
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 1.0f, resyncStickMagnitude(1.0f, 0.0f));
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, resyncStickMagnitude(0.0f, 0.0f));
+    // Diagonal: sqrt(0.5² + 0.5²) ≈ 0.707
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.707f, resyncStickMagnitude(0.5f, 0.5f));
+}
+
+// ============================================================================
+// Hit logger
+// ============================================================================
+
+void test_hitlog_init_empty() {
+    HitLogger log;
+    hitLogInit(log);
+    TEST_ASSERT_EQUAL_UINT16(0, hitLogCount(log));
+    TEST_ASSERT_NULL(hitLogLatest(log));
+}
+
+void test_hitlog_record_and_retrieve() {
+    HitLogger log;
+    hitLogInit(log);
+    hitLogRecord(log, 1000, 150.0f, 300.0f);
+    TEST_ASSERT_EQUAL_UINT16(1, hitLogCount(log));
+    const HitRecord* latest = hitLogLatest(log);
+    TEST_ASSERT_NOT_NULL(latest);
+    TEST_ASSERT_EQUAL_FLOAT(150.0f, latest->peakG);
+}
+
+void test_hitlog_max_g_tracked() {
+    HitLogger log;
+    hitLogInit(log);
+    hitLogRecord(log, 100, 50.0f, 200.0f);
+    hitLogRecord(log, 200, 200.0f, 300.0f);
+    hitLogRecord(log, 300, 100.0f, 250.0f);
+    TEST_ASSERT_EQUAL_FLOAT(200.0f, hitLogMaxG(log));
+}
+
+void test_hitlog_wraps() {
+    HitLogger log;
+    hitLogInit(log);
+    // Fill beyond capacity
+    for (int i = 0; i < HIT_LOG_SIZE + 5; i++) {
+        hitLogRecord(log, i * 100, (float)i, 100.0f);
+    }
+    TEST_ASSERT_EQUAL_UINT16(HIT_LOG_SIZE + 5, hitLogCount(log));
+    const HitRecord* latest = hitLogLatest(log);
+    TEST_ASSERT_NOT_NULL(latest);
+    TEST_ASSERT_EQUAL_FLOAT((float)(HIT_LOG_SIZE + 4), latest->peakG);
+}
+
+void test_hitlog_format() {
+    HitLogger log;
+    hitLogInit(log);
+    hitLogRecord(log, 5000, 175.5f, 293.2f);
+    char buf[256];
+    int n = hitLogFormat(log, buf, sizeof(buf));
+    TEST_ASSERT_GREATER_THAN(0, n);
+    TEST_ASSERT_NOT_NULL(strstr(buf, "175.5"));
+}
+
+// ============================================================================
+// LVC
+// ============================================================================
+
+void test_lvc_auto_detect_3s() {
+    TEST_ASSERT_EQUAL_UINT8(3, lvcAutoDetectCells(11.1f));
+}
+
+void test_lvc_auto_detect_4s() {
+    TEST_ASSERT_EQUAL_UINT8(4, lvcAutoDetectCells(14.8f));
+}
+
+void test_lvc_auto_detect_too_low() {
+    TEST_ASSERT_EQUAL_UINT8(0, lvcAutoDetectCells(1.0f));
+}
+
+void test_lvc_update_ok() {
+    LvcState state = {};
+    LvcConfig cfg = {3.3f, 3.0f, 3};
+    LvcLevel level = lvcUpdate(state, 11.4f, cfg);
+    TEST_ASSERT_EQUAL(LvcLevel::OK, level);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 3.8f, state.cellVoltage);
+}
+
+void test_lvc_update_warn() {
+    LvcState state = {};
+    LvcConfig cfg = {3.3f, 3.0f, 3};
+    LvcLevel level = lvcUpdate(state, 9.6f, cfg);  // 3.2V/cell
+    TEST_ASSERT_EQUAL(LvcLevel::WARN, level);
+}
+
+void test_lvc_update_critical() {
+    LvcState state = {};
+    LvcConfig cfg = {3.3f, 3.0f, 3};
+    LvcLevel level = lvcUpdate(state, 8.7f, cfg);  // 2.9V/cell
+    TEST_ASSERT_EQUAL(LvcLevel::CRITICAL, level);
+    TEST_ASSERT_TRUE(state.spinDownActive);
+}
+
+void test_lvc_spindown_ramp() {
+    LvcState state = {3, 0, 0, LvcLevel::CRITICAL, true};
+    // At 0ms into critical: full throttle
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.75f, lvcSpinDownThrottle(state, 0.75f, 0));
+    // At 1000ms: half throttle
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.375f, lvcSpinDownThrottle(state, 0.75f, 1000));
+    // At 2000ms: zero
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, lvcSpinDownThrottle(state, 0.75f, 2000));
+}
+
+void test_lvc_auto_detect_sticks() {
+    LvcState state = {};
+    LvcConfig cfg = {3.3f, 3.0f, 0};  // Auto-detect
+
+    // First reading at 11.1V → auto-detect 3S
+    lvcUpdate(state, 11.1f, cfg);
+    TEST_ASSERT_EQUAL_UINT8(3, state.detectedCells);
+
+    // Voltage drops but cell count stays
+    lvcUpdate(state, 9.0f, cfg);
+    TEST_ASSERT_EQUAL_UINT8(3, state.detectedCells);  // Doesn't re-detect
+}
+
+// ============================================================================
+// Blackbox
+// ============================================================================
+
+void test_blackbox_init() {
+    BlackboxState state;
+    blackboxInit(state, 8 * 1024 * 1024, 4096);  // 8MB, 4K sectors
+    TEST_ASSERT_EQUAL_UINT32(0, state.writeOffset);
+    TEST_ASSERT_FALSE(state.wrapped);
+}
+
+void test_blackbox_capacity() {
+    BlackboxState state;
+    blackboxInit(state, 8 * 1024 * 1024, 4096);
+    uint32_t cap = blackboxCapacity(state);
+    // 8MB / 24 bytes = 349525
+    TEST_ASSERT_EQUAL_UINT32(349525, cap);
+}
+
+void test_blackbox_next_offset() {
+    BlackboxState state;
+    blackboxInit(state, 240, 4096);  // Small flash for testing (10 records)
+    uint32_t off1 = blackboxNextOffset(state);
+    TEST_ASSERT_EQUAL_UINT32(0, off1);
+    uint32_t off2 = blackboxNextOffset(state);
+    TEST_ASSERT_EQUAL_UINT32(24, off2);
+}
+
+void test_blackbox_wraps() {
+    BlackboxState state;
+    blackboxInit(state, 72, 4096);  // 3 records fit (72 / 24 = 3)
+
+    blackboxNextOffset(state);  // 0 → writeOffset=24
+    TEST_ASSERT_FALSE(state.wrapped);
+    blackboxNextOffset(state);  // 24 → writeOffset=48
+    TEST_ASSERT_FALSE(state.wrapped);
+    blackboxNextOffset(state);  // 48 → writeOffset=72 >= 72 → wraps to 0
+    TEST_ASSERT_TRUE(state.wrapped);
+    TEST_ASSERT_EQUAL_UINT32(0, state.writeOffset);
+}
+
+void test_blackbox_stored() {
+    BlackboxState state;
+    blackboxInit(state, 240, 4096);  // 10 records
+
+    TEST_ASSERT_EQUAL_UINT32(0, blackboxStored(state));
+    blackboxNextOffset(state);
+    TEST_ASSERT_EQUAL_UINT32(1, blackboxStored(state));
+    blackboxNextOffset(state);
+    TEST_ASSERT_EQUAL_UINT32(2, blackboxStored(state));
+}
+
+void test_blackbox_read_offset() {
+    BlackboxState state;
+    blackboxInit(state, 240, 4096);
+
+    blackboxNextOffset(state);  // offset 0
+    blackboxNextOffset(state);  // offset 24
+    blackboxNextOffset(state);  // offset 48
+
+    uint32_t offset;
+    // Most recent (N=0) should be at 48
+    TEST_ASSERT_TRUE(blackboxReadOffset(state, 0, &offset));
+    TEST_ASSERT_EQUAL_UINT32(48, offset);
+
+    // N=1 should be at 24
+    TEST_ASSERT_TRUE(blackboxReadOffset(state, 1, &offset));
+    TEST_ASSERT_EQUAL_UINT32(24, offset);
+
+    // N=3 should fail (only 3 records)
+    TEST_ASSERT_FALSE(blackboxReadOffset(state, 3, &offset));
+}
+
+void test_blackbox_format() {
+    BlackboxRecord rec = {1000, 293.2f, 1.5f, 11.1f, 5.0f, 0, 1, 1, 0};
+    char buf[256];
+    int n = blackboxFormatRecord(rec, buf, sizeof(buf));
+    TEST_ASSERT_GREATER_THAN(0, n);
+    TEST_ASSERT_NOT_NULL(strstr(buf, "1000"));
+    TEST_ASSERT_NOT_NULL(strstr(buf, "293.20"));
+}
+
+void test_blackbox_format_header() {
+    char buf[256];
+    int n = blackboxFormatHeader(buf, sizeof(buf));
+    TEST_ASSERT_GREATER_THAN(0, n);
+    TEST_ASSERT_NOT_NULL(strstr(buf, "timestamp_ms"));
+    TEST_ASSERT_NOT_NULL(strstr(buf, "omega_rad_s"));
+}
+
+// ============================================================================
+// Main
+// ============================================================================
+int main() {
+    UNITY_BEGIN();
+
+    // Creep
+    RUN_TEST(test_creep_enters_below_threshold);
+    RUN_TEST(test_creep_stays_with_hysteresis);
+    RUN_TEST(test_creep_exits_above_hysteresis);
+    RUN_TEST(test_creep_force_switch);
+    RUN_TEST(test_creep_output_forward);
+    RUN_TEST(test_creep_output_turn);
+    RUN_TEST(test_creep_output_3motor_third_passive);
+    RUN_TEST(test_creep_output_clamped);
+
+    // Resync
+    RUN_TEST(test_resync_init);
+    RUN_TEST(test_resync_hold_accumulates);
+    RUN_TEST(test_resync_release_returns_angle);
+    RUN_TEST(test_resync_below_threshold_cancels);
+    RUN_TEST(test_resync_stick_angle);
+    RUN_TEST(test_resync_stick_magnitude);
+
+    // Hit logger
+    RUN_TEST(test_hitlog_init_empty);
+    RUN_TEST(test_hitlog_record_and_retrieve);
+    RUN_TEST(test_hitlog_max_g_tracked);
+    RUN_TEST(test_hitlog_wraps);
+    RUN_TEST(test_hitlog_format);
+
+    // LVC
+    RUN_TEST(test_lvc_auto_detect_3s);
+    RUN_TEST(test_lvc_auto_detect_4s);
+    RUN_TEST(test_lvc_auto_detect_too_low);
+    RUN_TEST(test_lvc_update_ok);
+    RUN_TEST(test_lvc_update_warn);
+    RUN_TEST(test_lvc_update_critical);
+    RUN_TEST(test_lvc_spindown_ramp);
+    RUN_TEST(test_lvc_auto_detect_sticks);
+
+    // Blackbox
+    RUN_TEST(test_blackbox_init);
+    RUN_TEST(test_blackbox_capacity);
+    RUN_TEST(test_blackbox_next_offset);
+    RUN_TEST(test_blackbox_wraps);
+    RUN_TEST(test_blackbox_stored);
+    RUN_TEST(test_blackbox_read_offset);
+    RUN_TEST(test_blackbox_format);
+    RUN_TEST(test_blackbox_format_header);
+
+    return UNITY_END();
+}

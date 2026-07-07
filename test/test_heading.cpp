@@ -2,7 +2,7 @@
 // Tests differential omega, phase integration, motor output, trim, RPM hold.
 
 #include <unity.h>
-#include "../src/heading.hpp"
+#include "heading.hpp"
 #include <cmath>
 
 using namespace melty;

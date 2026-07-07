@@ -24,7 +24,7 @@
 - [x] Bidirectional GCR decode (5→4 bit lookup table)
 - [x] Telemetry CRC validation + eRPM period extraction
 - [x] DShot command enum
-- [x] 25 unit tests (pack/CRC/timing/GCR/eRPM)
+- [x] 25 unit tests
 - [ ] HAL/LL timer+DMA send driver (BLOCKED — needs pin assignments)
 - [ ] Bidir input-capture receive driver (BLOCKED — needs pin assignments)
 
@@ -41,18 +41,18 @@
 - [ ] USB debug streaming (live omega/state over serial)
 
 ## Pure Logic — No Hardware Needed
-- [ ] Config CLI parser (get/set/dump/save/defaults/list/list json/status/cal/version/help)
-- [ ] Config store: schema migration logic (old blob → new, CRC validation)
-- [ ] Config store: param registry get/set/format by ParamDef (populate stubs)
-- [ ] CRSF frame parser (packet framing, channel extraction, CRC8 DVB-S2)
-- [ ] CRSF telemetry frame builder (flight mode text, battery, custom sensor)
-- [ ] LED state machine (priority stack, transitions, pattern timing logic)
-- [ ] Creep/tank mode (differential drive math, N=2 full / N=3 degraded)
-- [ ] Creep mode transition (hysteresis, CH_CREEP_FORCE switch)
-- [ ] Heading re-sync gesture (stick angle averaging, threshold, offset snap)
-- [ ] Hit logger (ring buffer, peak-G per hit, count)
-- [ ] LVC (per-cell voltage calc, auto-detect cell count, warn/crit thresholds)
-- [ ] Blackbox ring buffer (write pointer, sector management, CLI dump format)
+- [x] Config CLI parser (get/set/dump/save/defaults/list/list json/status/cal/version/help) — 36 tests
+- [x] Config store: schema migration logic (old blob → new, CRC validation)
+- [x] Config store: param registry get/set/format by ParamDef — 55 params fully populated
+- [x] CRSF frame parser (packet framing, channel extraction, CRC8 DVB-S2) — 19 tests
+- [x] CRSF telemetry frame builder (flight mode text, battery, custom sensor)
+- [x] LED state machine (priority stack, transitions, pattern timing logic) — 14 tests
+- [x] Creep/tank mode (differential drive math, N=2 full / N=3 degraded) — 8 tests
+- [x] Creep mode transition (hysteresis, CH_CREEP_FORCE switch)
+- [x] Heading re-sync gesture (stick angle averaging, threshold, offset snap) — 6 tests
+- [x] Hit logger (ring buffer, peak-G per hit, count) — 5 tests
+- [x] LVC (per-cell voltage calc, auto-detect cell count, warn/crit thresholds) — 8 tests
+- [x] Blackbox ring buffer (write pointer, sector management, CLI dump format) — 8 tests
 
 ## P4: CRSF + Safety (partial BLOCKED — UART needs pins)
 - [x] Safety state machine (arming lifecycle)
@@ -64,32 +64,35 @@
 - [x] Translation angle/magnitude from stick
 - [x] Motor output with windowing
 - [x] Inversion logic
-- [ ] Stick-referenced heading re-sync integration
+- [x] Stick-referenced heading re-sync — pure logic done, integration on hardware BLOCKED
 - [ ] Full integration on hardware (BLOCKED)
 
 ## P6: Config CLI + Param Registry
-- [ ] CLI command parser + dispatch
-- [ ] Registry enumeration (list / list json)
-- [ ] get/set with type validation + clamping
-- [ ] dump (diff-able/re-playable output)
-- [ ] save/defaults (flash persistence)
-- [ ] status (live telemetry output)
-- [ ] cal (calibration mode entry)
+- [x] CLI command parser + dispatch
+- [x] Registry enumeration (list / list json)
+- [x] get/set with type validation + clamping
+- [x] dump (diff-able/re-playable output)
+- [x] save/defaults (logic done — flash persistence BLOCKED on hardware)
+- [x] status (format done — live data BLOCKED on hardware)
+- [x] cal (entry logic — cal mode BLOCKED on hardware)
 
 ## P7: Slip Detection + Blackbox
 - [x] Slip math (eRPM → mechRPM → wheel omega → slip %)
 - [x] 7 unit tests
-- [ ] Blackbox ring buffer to SPI flash
-- [ ] CLI dump command for blackbox
+- [x] Blackbox ring buffer logic (write pointer, sector management, CLI dump format)
+- [ ] Blackbox SPI flash driver (BLOCKED — needs hardware)
+- [ ] CLI dump command for blackbox (logic done — I/O BLOCKED)
 
 ## P8: Creep, Hit Logger, LVC
-- [ ] Creep mode integration
-- [ ] Hit logger integration
-- [ ] LVC warn/crit integration + auto spin-down
+- [x] Creep mode pure logic (differential drive, hysteresis transition)
+- [x] Hit logger pure logic (ring buffer, peak-G tracking, format)
+- [x] LVC pure logic (auto-detect cells, warn/crit, spin-down ramp)
+- [ ] Integration with main loop (BLOCKED — needs hardware)
 
 ## P9: Telemetry, Tests, Docs
-- [ ] CRSF telemetry: flight mode, battery, slip sensor
-- [ ] Full test suite green
+- [x] CRSF telemetry: flight mode frame builder
+- [x] CRSF telemetry: battery sensor frame builder
+- [x] Full test suite: 180 tests, 0 failures
 - [ ] Lint clean (clang-format + cppcheck)
 - [ ] PARAMS.md generated from registry
 - [ ] CLI_REFERENCE.md generated from registry

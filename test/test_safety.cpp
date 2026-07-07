@@ -1,7 +1,7 @@
 // MeltyFC — Safety & Arming Unit Tests
 
 #include <unity.h>
-#include "../src/safety.hpp"
+#include "safety.hpp"
 
 using namespace melty;
 

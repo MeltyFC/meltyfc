@@ -1,7 +1,7 @@
 // MeltyFC — Slip Detection Unit Tests
 
 #include <unity.h>
-#include "../src/slip.hpp"
+#include "slip.hpp"
 #include <cmath>
 
 using namespace melty;
