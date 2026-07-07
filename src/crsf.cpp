@@ -77,7 +77,14 @@ bool crsfParserFeed(CrsfParser& parser, uint8_t byte) {
 // 16x 11-bit values packed into 22 bytes
 // ============================================================================
 bool crsfDecodeChannels(const uint8_t* frame, uint8_t frameLen, CrsfChannels& out) {
-    if (frameLen < 24 || frame[2] != CRSF_FRAMETYPE_RC_CHANNELS)
+    // DI-14: Clear output on entry — stale valid data must not persist
+    out = {};
+    out.valid = false;
+
+    // DI-13: Explicit length check. RC channels frame = sync(1) + len(1) + type(1)
+    // + 22 payload bytes + crc(1) = 26 bytes minimum total buffer.
+    // Reading up to frame[24] (p[21]), so need at least 25 bytes.
+    if (!frame || frameLen < 26 || frame[2] != CRSF_FRAMETYPE_RC_CHANNELS)
         return false;
 
     const uint8_t* p = &frame[3];
@@ -107,7 +114,13 @@ bool crsfDecodeChannels(const uint8_t* frame, uint8_t frameLen, CrsfChannels& ou
 // Decode link statistics (frame type 0x14)
 // ============================================================================
 bool crsfDecodeLinkStats(const uint8_t* frame, uint8_t frameLen, CrsfLinkStats& out) {
-    if (frameLen < 12 || frame[2] != CRSF_FRAMETYPE_LINK_STATS)
+    // DI-14: Clear output on entry
+    out = {};
+    out.valid = false;
+
+    // DI-13: Link stats frame = sync+len+type+10 payload+crc = 14 bytes min.
+    // Reading up to frame[12] (p[9]), so need at least 13 bytes.
+    if (!frame || frameLen < 14 || frame[2] != CRSF_FRAMETYPE_LINK_STATS)
         return false;
 
     const uint8_t* p = &frame[3];
@@ -151,6 +164,9 @@ bool crsfChannelToBool(uint16_t raw) {
 // Telemetry: Flight Mode frame (0x21)
 // ============================================================================
 size_t crsfBuildFlightMode(uint8_t* outBuf, size_t bufLen, const char* modeText) {
+    // DI-21: null pointer guard
+    if (modeText == nullptr)
+        modeText = "UNKNOWN";
     size_t textLen = strlen(modeText);
     if (textLen > 14)
         textLen = 14;
@@ -188,6 +204,18 @@ size_t crsfBuildBattery(uint8_t* outBuf, size_t bufLen, float voltage, float cur
     // Frame: sync + length + type + payload + crc = 12
     if (bufLen < 12)
         return 0;
+
+    // DI-15: Sanitize before unsigned packing — NaN/negative/overflow → clamp
+    if (!std::isfinite(voltage) || voltage < 0.0f)
+        voltage = 0.0f;
+    if (voltage > 6553.5f)
+        voltage = 6553.5f;
+    if (!std::isfinite(current) || current < 0.0f)
+        current = 0.0f;
+    if (current > 6553.5f)
+        current = 6553.5f;
+    if (remainingPct > 100)
+        remainingPct = 100;
 
     uint16_t voltDv = static_cast<uint16_t>(voltage * 10.0f);
     uint16_t currDa = static_cast<uint16_t>(current * 10.0f);

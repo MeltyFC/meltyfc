@@ -12,6 +12,10 @@ SlotStatus validateSlot(const ConfigSlotHeader& header, const ConfigData& data) 
     if (header.magic != CONFIG_SLOT_MAGIC)
         return status;
 
+    // DI-06: Verify sequence redundancy
+    if (header.sequenceInv != static_cast<uint8_t>(~header.sequence))
+        return status; // Header bit flip — reject this slot
+
     // Check CRC
     uint32_t computed = computeConfigCrc(data);
     if (computed != data.crc32)
@@ -65,9 +69,9 @@ ConfigSlotHeader buildSlotHeader(uint8_t sequence) {
     ConfigSlotHeader header;
     header.magic = CONFIG_SLOT_MAGIC;
     header.sequence = sequence;
+    header.sequenceInv = static_cast<uint8_t>(~sequence); // DI-06: redundancy
     header.reserved[0] = 0;
     header.reserved[1] = 0;
-    header.reserved[2] = 0;
     return header;
 }
 

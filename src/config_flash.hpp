@@ -15,10 +15,12 @@
 
 namespace melty {
 
+// DI-06: Header includes redundant sequence to detect bit flips
 struct ConfigSlotHeader {
-    uint32_t magic;   // 0x4D454C54 ("MELT")
-    uint8_t sequence; // Monotonic counter (wraps at 255)
-    uint8_t reserved[3];
+    uint32_t magic;      // 0x4D454C54 ("MELT")
+    uint8_t sequence;    // Monotonic counter (wraps at 255)
+    uint8_t sequenceInv; // ~sequence (redundancy — single bit flip detectable)
+    uint8_t reserved[2];
 };
 
 constexpr uint32_t CONFIG_SLOT_MAGIC = 0x4D454C54; // "MELT"

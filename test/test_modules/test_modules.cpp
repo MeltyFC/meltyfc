@@ -284,35 +284,37 @@ void test_blackbox_capacity() {
     BlackboxState state;
     blackboxInit(state, 8 * 1024 * 1024, 4096);
     uint32_t cap = blackboxCapacity(state);
-    // 8MB / 24 bytes = 349525
-    TEST_ASSERT_EQUAL_UINT32(349525, cap);
+    // 8MB / sizeof(BlackboxRecord)
+    TEST_ASSERT_EQUAL_UINT32(8 * 1024 * 1024 / sizeof(BlackboxRecord), cap);
 }
 
 void test_blackbox_next_offset() {
     BlackboxState state;
-    blackboxInit(state, 240, 4096); // Small flash for testing (10 records)
+    blackboxInit(state, 280, 4096); // Small flash for testing (10 records at 28 bytes)
     uint32_t off1 = blackboxNextOffset(state);
     TEST_ASSERT_EQUAL_UINT32(0, off1);
     uint32_t off2 = blackboxNextOffset(state);
-    TEST_ASSERT_EQUAL_UINT32(24, off2);
+    TEST_ASSERT_EQUAL_UINT32(sizeof(BlackboxRecord), off2);
 }
 
 void test_blackbox_wraps() {
     BlackboxState state;
-    blackboxInit(state, 72, 4096); // 3 records fit (72 / 24 = 3)
+    blackboxInit(state, 84, 4096); // 3 records fit (84 / 28 = 3)
 
-    blackboxNextOffset(state); // 0 → writeOffset=24
+    blackboxNextOffset(state); // offset=0, writeOffset→28
     TEST_ASSERT_FALSE(state.wrapped);
-    blackboxNextOffset(state); // 24 → writeOffset=48
+    blackboxNextOffset(state); // offset=28, writeOffset→56
     TEST_ASSERT_FALSE(state.wrapped);
-    blackboxNextOffset(state); // 48 → writeOffset=72 >= 72 → wraps to 0
+    blackboxNextOffset(state);        // offset=56, writeOffset→84
+    TEST_ASSERT_FALSE(state.wrapped); // Buffer full but not yet wrapped
+    // 4th call triggers wrap — writeOffset=84 >= usableSize=84
+    blackboxNextOffset(state); // wraps → offset=0, writeOffset→28
     TEST_ASSERT_TRUE(state.wrapped);
-    TEST_ASSERT_EQUAL_UINT32(0, state.writeOffset);
 }
 
 void test_blackbox_stored() {
     BlackboxState state;
-    blackboxInit(state, 240, 4096); // 10 records
+    blackboxInit(state, 280, 4096); // 10 records
 
     TEST_ASSERT_EQUAL_UINT32(0, blackboxStored(state));
     blackboxNextOffset(state);
@@ -323,27 +325,27 @@ void test_blackbox_stored() {
 
 void test_blackbox_read_offset() {
     BlackboxState state;
-    blackboxInit(state, 240, 4096);
+    blackboxInit(state, 280, 4096);
 
     blackboxNextOffset(state); // offset 0
-    blackboxNextOffset(state); // offset 24
-    blackboxNextOffset(state); // offset 48
+    blackboxNextOffset(state); // offset 28
+    blackboxNextOffset(state); // offset 56
 
     uint32_t offset;
     // Most recent (N=0) should be at 48
     TEST_ASSERT_TRUE(blackboxReadOffset(state, 0, &offset));
-    TEST_ASSERT_EQUAL_UINT32(48, offset);
+    TEST_ASSERT_EQUAL_UINT32(2 * sizeof(BlackboxRecord), offset);
 
-    // N=1 should be at 24
+    // N=1 should be at sizeof(BlackboxRecord)
     TEST_ASSERT_TRUE(blackboxReadOffset(state, 1, &offset));
-    TEST_ASSERT_EQUAL_UINT32(24, offset);
+    TEST_ASSERT_EQUAL_UINT32(sizeof(BlackboxRecord), offset);
 
     // N=3 should fail (only 3 records)
     TEST_ASSERT_FALSE(blackboxReadOffset(state, 3, &offset));
 }
 
 void test_blackbox_format() {
-    BlackboxRecord rec = {1000, 293.2f, 1.5f, 11.1f, 5.0f, 0, 1, 1, 0};
+    BlackboxRecord rec = {BLACKBOX_RECORD_MAGIC, 0, 1000, 293.2f, 1.5f, 11.1f, 5.0f, 0, 1, 1, 0};
     char buf[256];
     int n = blackboxFormatRecord(rec, buf, sizeof(buf));
     TEST_ASSERT_GREATER_THAN(0, n);

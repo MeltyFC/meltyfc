@@ -1,6 +1,7 @@
 // MeltyFC — Low Voltage Cutoff Implementation
 
 #include "lvc.hpp"
+#include <cmath>
 
 namespace melty {
 
@@ -26,6 +27,14 @@ uint8_t lvcAutoDetectCells(float packVoltage) {
 }
 
 LvcLevel lvcUpdate(LvcState& state, float packVoltage, const LvcConfig& cfg) {
+    // DI-16: Reject NaN/Inf voltage as sensor fault
+    if (!std::isfinite(packVoltage) || packVoltage < 0.0f) {
+        state.packVoltage = 0.0f;
+        state.cellVoltage = 0.0f;
+        state.level = LvcLevel::SENSOR_FAULT;
+        return LvcLevel::SENSOR_FAULT;
+    }
+
     state.packVoltage = packVoltage;
 
     // Determine cell count

@@ -7,7 +7,15 @@
 
 namespace melty {
 
+// DI-17: NaN guard — returns 0.0 if any input is non-finite
+static inline float safeFloat(float v, float fallback = 0.0f) {
+    return std::isfinite(v) ? v : fallback;
+}
+
 float computeOmegaDifferential(float aOuter, float aInner, float drEff) {
+    // DI-17: Reject NaN inputs
+    aOuter = safeFloat(aOuter);
+    aInner = safeFloat(aInner);
     // ω = sqrt(max(0, (a_outer - a_inner)) / dr_eff)
     // Acceleration in m/s² (input in g, convert: a_g * 9.81)
     // dr_eff in meters

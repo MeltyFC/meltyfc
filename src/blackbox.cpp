@@ -1,5 +1,6 @@
 // MeltyFC — Blackbox-Lite Implementation
-// PURE LOGIC — ring buffer management. Flash I/O via IFlashStorage.
+// DI-09/10/11/12 fixes: usable size precompute, sector-start erase,
+// no cross-sector records, record magic for validity.
 
 #include "blackbox.hpp"
 #include <cstdio>
@@ -12,40 +13,53 @@ void blackboxInit(BlackboxState& state, uint32_t flashSize, uint32_t sectorSize)
     state.sectorSize = sectorSize;
     state.recordCount = 0;
     state.wrapped = false;
+    // DI-09: Precompute usable size — exact multiple of record size
+    state.usableSize = (flashSize / sizeof(BlackboxRecord)) * sizeof(BlackboxRecord);
 }
 
 uint32_t blackboxNextOffset(BlackboxState& state) {
-    uint32_t offset = state.writeOffset;
-
-    state.writeOffset += sizeof(BlackboxRecord);
-    if (state.writeOffset >= state.flashSize) {
+    // DI-09: Wrap when we can't fit another record
+    if (state.writeOffset >= state.usableSize) {
         state.writeOffset = 0;
         state.wrapped = true;
     }
 
+    // DI-11: Skip to next sector if record would straddle a sector boundary
+    if (state.sectorSize > 0) {
+        uint32_t sectorStart = (state.writeOffset / state.sectorSize) * state.sectorSize;
+        uint32_t sectorEnd = sectorStart + state.sectorSize;
+        if (state.writeOffset + sizeof(BlackboxRecord) > sectorEnd) {
+            // Record would cross sector boundary — skip to next sector
+            state.writeOffset = sectorEnd;
+            // Check wrap again after skip
+            if (state.writeOffset + sizeof(BlackboxRecord) > state.usableSize) {
+                state.writeOffset = 0;
+                state.wrapped = true;
+            }
+        }
+    }
+
+    uint32_t offset = state.writeOffset;
+    state.writeOffset += sizeof(BlackboxRecord);
     state.recordCount++;
     return offset;
 }
 
 bool blackboxNeedsErase(const BlackboxState& state, uint32_t* eraseAddr) {
-    // Erase needed when write offset is at the start of a new sector
     if (state.sectorSize == 0)
         return false;
 
-    uint32_t nextWrite = state.writeOffset + sizeof(BlackboxRecord);
-    uint32_t currentSector = state.writeOffset / state.sectorSize;
-    uint32_t nextSector = nextWrite / state.sectorSize;
-
-    if (nextSector != currentSector || state.writeOffset == 0) {
+    // DI-10: Erase when write offset is at the start of ANY sector, not just 0
+    if (state.writeOffset % state.sectorSize == 0) {
         if (eraseAddr)
-            *eraseAddr = nextSector * state.sectorSize;
+            *eraseAddr = state.writeOffset;
         return true;
     }
     return false;
 }
 
 uint32_t blackboxCapacity(const BlackboxState& state) {
-    return state.flashSize / sizeof(BlackboxRecord);
+    return state.usableSize / sizeof(BlackboxRecord);
 }
 
 uint32_t blackboxStored(const BlackboxState& state) {
@@ -60,15 +74,13 @@ bool blackboxReadOffset(const BlackboxState& state, uint32_t n, uint32_t* offset
     if (n >= stored)
         return false;
 
-    // Most recent is at (writeOffset - sizeof(BlackboxRecord))
-    // N=0 → most recent, N=1 → second most recent, etc.
     int64_t readOff = static_cast<int64_t>(state.writeOffset) -
                       static_cast<int64_t>((n + 1) * sizeof(BlackboxRecord));
 
     if (readOff < 0) {
         if (!state.wrapped)
             return false;
-        readOff += state.flashSize;
+        readOff += state.usableSize; // DI-09: Use usableSize, not flashSize
     }
 
     *offset = static_cast<uint32_t>(readOff);
@@ -82,6 +94,10 @@ int blackboxFormatHeader(char* buf, size_t bufLen) {
 }
 
 int blackboxFormatRecord(const BlackboxRecord& rec, char* buf, size_t bufLen) {
+    // DI-12: Check record magic before formatting
+    if (rec.magic != BLACKBOX_RECORD_MAGIC) {
+        return snprintf(buf, bufLen, "# invalid record (magic=0x%04X)\r\n", rec.magic);
+    }
     return snprintf(buf, bufLen, "%u,%.2f,%.4f,%.2f,%.1f,%u,%u,%u\r\n", rec.timestampMs,
                     (double)rec.omega, (double)rec.phase, (double)rec.packVoltage,
                     (double)rec.slipPct, rec.orientation, rec.hitDetected, rec.armState);
