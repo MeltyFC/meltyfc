@@ -88,7 +88,11 @@ float computeRpmHold(float currentRpm, float targetRpm, float baseThrottle,
 float applyInversion(float transAngle, bool inverted);
 
 // Hit detection from accel readings
-bool detectHit(float aOuterRaw, float expectedG, float thresholdG);
+// A6: Gated on ω > minimum AND |commanded dω| < ramp threshold
+// to prevent false-fires during every spin-up.
+bool detectHit(float aOuterRaw, float expectedG, float thresholdG, float omegaRadS = 999.0f,
+               float minOmegaForHitDetection = 0.0f, float commandedDOmega = 0.0f,
+               float maxDOmegaForHitDetection = 999.0f);
 
 // Omega from RPM and vice versa
 inline float rpmToOmega(float rpm) {

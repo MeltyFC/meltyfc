@@ -88,16 +88,22 @@ float computeMotorOutput(float motorAngle, float transAngle, float transMag, flo
 }
 
 float computeTrimRate(float stickVal, const TrimConfig& cfg) {
+    constexpr float DEADBAND = 0.02f;
     const float absStick = fabsf(stickVal);
-    if (absStick < 0.02f)
-        return 0.0f; // Tiny deadband
+    if (absStick < DEADBAND)
+        return 0.0f;
+
+    // D9: Remap stick from [deadband, 1.0] → [0, 1.0] to eliminate
+    // the discontinuity at the deadband edge. Without this, rate jumps
+    // from 0 to rateFine instantly.
+    const float remapped = (absStick - DEADBAND) / (1.0f - DEADBAND);
 
     // Expo curve: mix linear and cubic
-    const float linear = absStick;
-    const float cubic = absStick * absStick * absStick;
+    const float linear = remapped;
+    const float cubic = remapped * remapped * remapped;
     const float curved = linear * (1.0f - cfg.expo) + cubic * cfg.expo;
 
-    // Map to rate range
+    // Map to rate range: 0→rateFine, 1→rateMax (smooth from deadband edge)
     const float rate = cfg.rateFine + curved * (cfg.rateMax - cfg.rateFine);
     return copysignf(rate, stickVal);
 }
@@ -123,7 +129,16 @@ float applyInversion(float transAngle, bool inverted) {
     return transAngle;
 }
 
-bool detectHit(float aOuterRaw, float expectedG, float thresholdG) {
+bool detectHit(float aOuterRaw, float expectedG, float thresholdG, float omegaRadS,
+               float minOmegaForHitDetection, float commandedDOmega,
+               float maxDOmegaForHitDetection) {
+    // A6: Suppress hit detection during commanded spin-up/ramp.
+    // During ramp, true ω leads slew-limited estimate → residual exceeds
+    // threshold → false-positive blanking at every launch.
+    if (omegaRadS < minOmegaForHitDetection)
+        return false;
+    if (fabsf(commandedDOmega) > maxDOmegaForHitDetection)
+        return false;
     return fabsf(aOuterRaw - expectedG) > thresholdG;
 }
 

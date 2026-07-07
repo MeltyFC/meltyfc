@@ -38,12 +38,14 @@ void creepComputeOutput(float stickX, float stickY, float throttleCap, uint8_t n
     float left = stickY + stickX;
     float right = stickY - stickX;
 
-    // Clamp to [-throttleCap, +throttleCap]
+    // S2: DShot is unidirectional — no reverse without 3D mode.
+    // Clamp to [0, throttleCap] (forward-only creep for v1).
+    // Pivot steering via single-wheel drive, no reverse.
     auto clamp = [throttleCap](float v) -> float {
         if (v > throttleCap)
             return throttleCap;
-        if (v < -throttleCap)
-            return -throttleCap;
+        if (v < 0.0f)
+            return 0.0f;
         return v;
     };
 

@@ -56,9 +56,10 @@ void test_creep_output_forward() {
 void test_creep_output_turn() {
     float out[4] = {0};
     creepComputeOutput(1.0f, 0.0f, 1.0f, 2, out);
-    // Left forward, right backward (pivot turn)
+    // S2: Forward-only creep (DShot has no reverse without 3D mode)
+    // Left wheel gets thrust, right wheel stops → pivot steering
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 1.0f, out[0]);
-    TEST_ASSERT_FLOAT_WITHIN(0.01f, -1.0f, out[1]);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, out[1]); // Clamped to 0, not -1
 }
 
 void test_creep_output_3motor_third_passive() {

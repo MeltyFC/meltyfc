@@ -155,6 +155,32 @@ fi
 pass "Architecture boundary audit"
 
 # ----------------------------------------------------------------
+# 7. Rocket invariants (grep-enforceable safety rules)
+# ----------------------------------------------------------------
+echo ""
+echo "--- Step 7: Rocket invariants ---"
+
+# I-1: Application code never writes internal flash
+I1_HITS=$(grep -rlE 'FLASH_CR|FLASH_KEYR|HAL_FLASH_Program|HAL_FLASHEx_Erase' \
+    src/ include/ 2>/dev/null || true)
+if [ -n "$I1_HITS" ]; then
+    echo "I-1 VIOLATION — internal flash write code found:"
+    echo "$I1_HITS"
+    fail "Invariant I-1: application code must never write internal flash"
+fi
+
+# I-2: No option-byte code is ever linked
+I2_HITS=$(grep -rlE 'OPTCR|OPTKEYR|OB_RDP|FLASH_OB_' \
+    src/ include/ targets/ 2>/dev/null || true)
+if [ -n "$I2_HITS" ]; then
+    echo "I-2 VIOLATION — option-byte code found:"
+    echo "$I2_HITS"
+    fail "Invariant I-2: no option-byte code may exist"
+fi
+
+pass "Rocket invariants (I-1, I-2)"
+
+# ----------------------------------------------------------------
 # Summary
 # ----------------------------------------------------------------
 echo ""
