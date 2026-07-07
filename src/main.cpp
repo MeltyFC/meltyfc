@@ -96,8 +96,22 @@ static void melty_loop() {
 
     // --- Safety checks (arming, failsafe, watchdog) ---
     // safety_update();
+    //
+    // D3 BINDING CONTRACT: LVC_CRIT → armState forced to DISARMED via
+    // ArmPreconditions.sensorsHealthy or a dedicated lvcCritical flag.
+    // The LVC module's throttle ramp-down runs in parallel, but the
+    // safety machine is the backstop — if LVC says CRITICAL, motors die.
+    //
+    // D4 BINDING CONTRACT: creepComputeOutput() results must be passed
+    // through chokeMotorOutput(output, armState) before reaching DShot.
+    // Creep mode is NOT an authority bypass — the choke point holds.
 
     // --- Motor output (DShot commit) ---
+    // For each motor i:
+    //   float raw = (creepActive) ? creepOut[i] : meltyMixOut[i];
+    //   float safe = chokeMotorOutput(raw, armState);
+    //   uint16_t dshot = throttleToDshot(safe, armState);
+    //   dshotWrite(i, dshot);
     // motors_update();
 
     // --- LED (state machine + beacon/POV) ---

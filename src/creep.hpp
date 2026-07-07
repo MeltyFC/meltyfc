@@ -47,7 +47,9 @@ bool creepUpdateState(CreepState& state, float currentRpm, bool forceSwitch,
 // motorOut[]: output array (sized for numMotors)
 // N=2: standard diff drive (motors at 0°/180°)
 // N=3: motors 0+1 drive, motor 2 passive (scrub)
+// A7: inverted param — when bot is upside down, stickX must negate
+// so that "left" on the TX still means "left" in the world.
 void creepComputeOutput(float stickX, float stickY, float throttleCap, uint8_t numMotors,
-                        float* motorOut);
+                        float* motorOut, bool inverted = false);
 
 } // namespace melty

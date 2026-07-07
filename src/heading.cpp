@@ -61,8 +61,15 @@ float computeMotorOutput(float motorAngle, float transAngle, float transMag, flo
         return std::min(spinThrottle, throttleCap);
     }
 
-    // Compute angular distance from motor to translation direction
-    float angleDiff = motorAngle - transAngle;
+    // C1: Motor POSITION is where the motor sits on the bot.
+    // Motor THRUST direction is perpendicular to the radial line —
+    // 90° ahead in the spin direction. The translation window must
+    // compare the THRUST angle to the commanded direction, not the
+    // position angle. This +π/2 offset is the key geometric correction.
+    const float thrustAngle = motorAngle + static_cast<float>(M_PI) / 2.0f;
+
+    // Compute angular distance from thrust direction to translation direction
+    float angleDiff = thrustAngle - transAngle;
     // Normalize to [-π, π)
     angleDiff = fmodf(angleDiff + M_PI, 2.0f * M_PI);
     if (angleDiff < 0.0f)
@@ -109,14 +116,27 @@ float computeTrimRate(float stickVal, const TrimConfig& cfg) {
 }
 
 float computeRpmHold(float currentRpm, float targetRpm, float baseThrottle,
-                     const RpmHoldConfig& cfg) {
+                     const RpmHoldConfig& cfg, RpmHoldState* state) {
     if (!cfg.enabled || targetRpm <= 0.0f) {
+        if (state)
+            state->wasEnabled = false;
         return baseThrottle;
+    }
+
+    // D5: On first engagement, capture the current throttle as feedforward
+    // to avoid a step from baseThrottle to feedforward+correction.
+    float ff = cfg.feedforward;
+    if (state) {
+        if (!state->wasEnabled) {
+            state->capturedThrottle = baseThrottle;
+            state->wasEnabled = true;
+        }
+        ff = state->capturedThrottle;
     }
 
     const float error = targetRpm - currentRpm;
     const float correction = cfg.kp * error;
-    const float output = cfg.feedforward + correction;
+    const float output = ff + correction;
 
     return std::clamp(output, 0.0f, 1.0f);
 }

@@ -37,6 +37,12 @@ struct RpmHoldConfig {
     float feedforward; // Base throttle fraction
 };
 
+// D5: RPM hold state — tracks engagement to avoid throttle step
+struct RpmHoldState {
+    bool wasEnabled;        // Governor was enabled last cycle
+    float capturedThrottle; // Throttle captured at moment of engagement
+};
+
 struct TrimConfig {
     float rateFine; // deg/s at min deflection
     float rateMax;  // deg/s at full deflection
@@ -81,8 +87,9 @@ float computeTrimRate(float stickVal, const TrimConfig& cfg);
 
 // RPM hold governor — returns adjusted throttle
 // P + feedforward, no integral (no-brake plant, sag is slow)
+// D5: state param tracks engagement to avoid throttle step on engage
 float computeRpmHold(float currentRpm, float targetRpm, float baseThrottle,
-                     const RpmHoldConfig& cfg);
+                     const RpmHoldConfig& cfg, RpmHoldState* state = nullptr);
 
 // Apply inversion — negate translation angle
 float applyInversion(float transAngle, bool inverted);

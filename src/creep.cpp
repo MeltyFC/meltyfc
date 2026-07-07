@@ -31,12 +31,15 @@ bool creepUpdateState(CreepState& state, float currentRpm, bool forceSwitch,
 }
 
 void creepComputeOutput(float stickX, float stickY, float throttleCap, uint8_t numMotors,
-                        float* motorOut) {
+                        float* motorOut, bool inverted) {
+    // A7: When inverted, negate stickX so world-left stays TX-left
+    const float effectiveStickX = inverted ? -stickX : stickX;
+
     // Standard differential drive:
     // left  = stickY + stickX
     // right = stickY - stickX
-    float left = stickY + stickX;
-    float right = stickY - stickX;
+    float left = stickY + effectiveStickX;
+    float right = stickY - effectiveStickX;
 
     // S2: DShot is unidirectional — no reverse without 3D mode.
     // Clamp to [0, throttleCap] (forward-only creep for v1).

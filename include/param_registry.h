@@ -143,8 +143,61 @@ struct __attribute__((packed)) ConfigData {
     float resyncMinDeflection = 0.3f; // Minimum stick deflection to accept re-sync
     uint16_t resyncAverageMs = 100;   // Average stick angle over this window
 
-    // CRC for integrity check
+    // CRC for integrity check — MUST be the last field.
+    // computeConfigCrc() checksums everything BEFORE this field.
     uint32_t crc32 = 0;
+};
+
+// B1: Enforce crc32 is the last field at compile time.
+// If someone adds a field after crc32, the CRC won't cover it.
+static_assert(offsetof(ConfigData, crc32) + sizeof(ConfigData::crc32) == sizeof(ConfigData),
+              "crc32 must be the last field in ConfigData");
+
+// ============================================================================
+// A2: DerivedConfig — computed ONCE at config load/change.
+// Registry stores human-friendly degrees; engine consumes radians.
+// This struct eliminates per-loop deg→rad conversions and cross-param
+// derivations. Recompute whenever ConfigData changes.
+// ============================================================================
+struct DerivedConfig {
+    float motorAngleRad[4];    // Motor mounting angles in radians
+    float windowHalfRad;       // Translation window half-width in radians
+    float drEffM;              // Effective radius difference in meters
+    float rInnerM;             // Inner sensor radius in meters
+    float rOuterM;             // Outer sensor radius in meters
+    float rIcmM;               // ICM radius in meters
+    float wheelDiaM;           // Wheel diameter in meters
+    float wheelMountRadiusM;   // Wheel mount radius in meters
+    float omegaLowspeedThresh; // Low-speed threshold in rad/s
+    float omegaMaxRpm;         // MAX_RPM in rad/s
+    float spinDirection;       // +1.0 CW, -1.0 CCW
+    float trimRateFineRad;     // Fine trim rate in rad/s
+    float trimRateMaxRad;      // Max trim rate in rad/s
+
+    // Recompute from ConfigData
+    static DerivedConfig from(const ConfigData& cfg) {
+        constexpr float DEG_TO_RAD = 3.14159265358979f / 180.0f;
+        constexpr float RPM_TO_RADS = 3.14159265358979f * 2.0f / 60.0f;
+        constexpr float MM_TO_M = 0.001f;
+
+        DerivedConfig d;
+        for (int i = 0; i < 4; i++) {
+            d.motorAngleRad[i] = cfg.motorAngle[i] * DEG_TO_RAD;
+        }
+        d.windowHalfRad = cfg.windowHalf * DEG_TO_RAD;
+        d.drEffM = cfg.drEff * MM_TO_M;
+        d.rInnerM = cfg.rInner * MM_TO_M;
+        d.rOuterM = cfg.rOuter * MM_TO_M;
+        d.rIcmM = cfg.rIcm * MM_TO_M;
+        d.wheelDiaM = cfg.wheelDia * MM_TO_M;
+        d.wheelMountRadiusM = cfg.wheelMountRadius * MM_TO_M;
+        d.omegaLowspeedThresh = static_cast<float>(cfg.lowspeedSwitchRpm) * RPM_TO_RADS;
+        d.omegaMaxRpm = static_cast<float>(cfg.maxRpm) * RPM_TO_RADS;
+        d.spinDirection = (cfg.spinDirection == 0) ? 1.0f : -1.0f;
+        d.trimRateFineRad = cfg.trimRateFine * DEG_TO_RAD;
+        d.trimRateMaxRad = cfg.trimRateMax * DEG_TO_RAD;
+        return d;
+    }
 };
 
 // ============================================================================

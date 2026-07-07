@@ -2,6 +2,7 @@
 // Tests differential omega, phase integration, motor output, trim, RPM hold.
 
 #include "heading.hpp"
+#include "param_registry.h"
 #include <cmath>
 #include <unity.h>
 
@@ -105,28 +106,32 @@ void test_motor_output_spin_only() {
 }
 
 void test_motor_output_boost_in_window() {
-    // Motor at 0°, translation at 0° → motor IS in the window → boosted
-    float out = computeMotorOutput(0.0f, 0.0f, 1.0f, 0.5f, 0.524f, 0.9f);
+    // C1: Motor POSITION at -π/2 → THRUST at 0° (position + 90°).
+    // Translation at 0° → thrust aligned → boosted.
+    float out = computeMotorOutput(-M_PI / 2.0f, 0.0f, 1.0f, 0.5f, 0.524f, 0.9f);
     TEST_ASSERT(out > 0.5f);
     TEST_ASSERT(out <= 0.9f);
 }
 
 void test_motor_output_opposing_window() {
-    // Motor at π, translation at 0° → motor in opposing window → reduced
-    float out = computeMotorOutput(M_PI, 0.0f, 1.0f, 0.5f, 0.524f, 0.9f);
+    // C1: Motor POSITION at π/2 → THRUST at π (position + 90°).
+    // Translation at 0° → thrust 180° away → opposing window → reduced.
+    float out = computeMotorOutput(M_PI / 2.0f, 0.0f, 1.0f, 0.5f, 0.524f, 0.9f);
     TEST_ASSERT(out < 0.5f);
     TEST_ASSERT(out >= 0.0f);
 }
 
 void test_motor_output_outside_both_windows() {
-    // Motor at π/2, translation at 0° → neither window → spin only
-    float out = computeMotorOutput(M_PI / 2.0f, 0.0f, 1.0f, 0.5f, 0.524f, 0.9f);
+    // C1: Motor POSITION at 0° → THRUST at π/2.
+    // Translation at 0° → thrust is 90° away → outside 30° window → spin only.
+    float out = computeMotorOutput(0.0f, 0.0f, 1.0f, 0.5f, 0.524f, 0.9f);
     TEST_ASSERT_FLOAT_WITHIN(0.05f, 0.5f, out);
 }
 
 void test_motor_output_clamp_to_cap() {
-    // Even with full boost, output should never exceed throttleCap
-    float out = computeMotorOutput(0.0f, 0.0f, 1.0f, 0.85f, 1.0f, 0.9f);
+    // C1: Motor at -π/2 → thrust at 0°. Translate at 0° → aligned, full boost.
+    // Even with full boost, output should never exceed throttleCap.
+    float out = computeMotorOutput(-M_PI / 2.0f, 0.0f, 1.0f, 0.85f, 1.0f, 0.9f);
     TEST_ASSERT(out <= 0.9f);
 }
 
@@ -216,6 +221,92 @@ void test_omega_to_rpm() {
 }
 
 // ============================================================================
+// C1: Thrust angle offset (motor thrust is 90° from position)
+// ============================================================================
+
+void test_motor_output_thrust_offset() {
+    // Motor at position 0 → thrust at π/2 (position + 90°).
+    // Translation at π/2 → thrust aligned → should boost.
+    float output = computeMotorOutput(0.0f,        // motor at position 0
+                                      M_PI / 2.0f, // translate right (aligns with thrust)
+                                      0.5f,        // half magnitude
+                                      0.5f,        // spin throttle
+                                      M_PI / 6.0f, // 30° window
+                                      0.9f);       // cap
+    TEST_ASSERT(output > 0.5f);
+}
+
+void test_motor_output_no_boost_perpendicular_to_thrust() {
+    // Motor at position 0 → thrust at π/2.
+    // Translation at 0 (forward) → 90° away from thrust → no boost.
+    float output = computeMotorOutput(0.0f,        // motor at position 0
+                                      0.0f,        // translate forward
+                                      0.5f,        // magnitude
+                                      0.5f,        // spin
+                                      M_PI / 6.0f, // 30° window
+                                      0.9f);       // cap
+    // Thrust at 90°, translation at 0° → 90° apart → outside 30° window
+    TEST_ASSERT_FLOAT_WITHIN(0.05f, 0.5f, output); // Just spin, no boost
+}
+
+// ============================================================================
+// A2: DerivedConfig conversions
+// ============================================================================
+
+void test_derived_config_deg_to_rad() {
+    ConfigData cfg;
+    cfg.motorAngle[0] = 0.0f;
+    cfg.motorAngle[1] = 120.0f;
+    cfg.motorAngle[2] = 240.0f;
+    cfg.windowHalf = 30.0f;
+    cfg.drEff = 13.0f;
+    cfg.rInner = 15.0f;
+    cfg.rOuter = 28.0f;
+    cfg.rIcm = 10.0f;
+    cfg.wheelDia = 40.0f;
+    cfg.wheelMountRadius = 85.0f;
+    cfg.lowspeedSwitchRpm = 900;
+    cfg.maxRpm = 3200;
+    cfg.spinDirection = 0; // CW
+    cfg.trimRateFine = 15.0f;
+    cfg.trimRateMax = 360.0f;
+
+    auto d = DerivedConfig::from(cfg);
+
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, d.motorAngleRad[0]);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 2.0944f, d.motorAngleRad[1]); // 120° = 2π/3
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 4.1888f, d.motorAngleRad[2]); // 240° = 4π/3
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.5236f, d.windowHalfRad);    // 30° = π/6
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.013f, d.drEffM);           // 13mm = 0.013m
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 1.0f, d.spinDirection);        // CW = +1.0
+}
+
+void test_derived_config_ccw() {
+    ConfigData cfg;
+    cfg.spinDirection = 1; // CCW
+    auto d = DerivedConfig::from(cfg);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, -1.0f, d.spinDirection);
+}
+
+// ============================================================================
+// D5: RPM hold ramp on engage
+// ============================================================================
+
+void test_rpm_hold_ramp_on_engage() {
+    RpmHoldConfig cfg = {true, 2800.0f, 0.002f, 0.5f};
+    RpmHoldState state = {false, 0.0f}; // Not previously enabled
+
+    // First call: governor engages. Should capture baseThrottle as feedforward.
+    float out = computeRpmHold(2750.0f, 2800.0f, 0.3f, cfg, &state);
+    TEST_ASSERT_TRUE(state.wasEnabled);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.3f, state.capturedThrottle);
+
+    // With captured FF=0.3 and small error (50rpm * 0.002 = 0.1):
+    // output = 0.3 + 0.1 = 0.4, NOT 0.5 + 0.1 = 0.6
+    TEST_ASSERT_FLOAT_WITHIN(0.05f, 0.4f, out);
+}
+
+// ============================================================================
 // Test runner
 // ============================================================================
 
@@ -270,6 +361,17 @@ int main() {
     // Conversions
     RUN_TEST(test_rpm_to_omega);
     RUN_TEST(test_omega_to_rpm);
+
+    // C1: Thrust offset
+    RUN_TEST(test_motor_output_thrust_offset);
+    RUN_TEST(test_motor_output_no_boost_perpendicular_to_thrust);
+
+    // A2: DerivedConfig
+    RUN_TEST(test_derived_config_deg_to_rad);
+    RUN_TEST(test_derived_config_ccw);
+
+    // D5: RPM hold ramp
+    RUN_TEST(test_rpm_hold_ramp_on_engage);
 
     return UNITY_END();
 }
