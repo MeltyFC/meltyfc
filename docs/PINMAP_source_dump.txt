@@ -1,0 +1,9 @@
+# PLACEHOLDER — Step 0 Dump Not Yet Captured
+#
+# Trip: connect to Betaflight Configurator and capture:
+#   1. CLI → `dump all` → paste below
+#   2. CLI → `resource list` → paste below
+#   3. CLI → `version` → paste below
+#
+# This file is the ONLY authoritative source for pin assignments.
+# Do not guess. Update targets/crux_f405hd/pinmap.h from this dump.

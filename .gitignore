@@ -1,0 +1,29 @@
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Build artifacts
+*.o
+*.elf
+*.bin
+*.hex
+*.map
+
+# Secrets / credentials
+*.env
+credentials.*
+*.key
+*.pem
+
+# OS
+Thumbs.db
+desktop.ini
