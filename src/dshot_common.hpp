@@ -119,5 +119,41 @@ enum DshotCommand : uint16_t {
     DSHOT_CMD_BIDIR_EDT_MODE_OFF = 14,
 };
 
+// ============================================================================
+// A5: EDT handshake sequence
+// To enable bidirectional DShot telemetry, the FC must send
+// DSHOT_CMD_BIDIR_EDT_MODE_ON (cmd 13) at least 6 times while disarmed.
+// This must happen before any throttle commands.
+// ============================================================================
+constexpr uint8_t EDT_ENABLE_REPEAT_COUNT = 6;
+
+// Pack an EDT enable command frame (command 13 with telemetry bit set)
+inline uint16_t packEdtEnableFrame() {
+    return packFrameBidir(DSHOT_CMD_BIDIR_EDT_MODE_ON, true);
+}
+
+// State machine for EDT handshake during arming
+struct EdtHandshakeState {
+    uint8_t sentCount; // How many EDT enable frames have been sent
+    bool complete;     // Handshake done — safe to send throttle
+
+    void reset() {
+        sentCount = 0;
+        complete = false;
+    }
+
+    // Call each loop iteration while disarmed and EDT is desired.
+    // Returns the frame to send (0 when complete — switch to throttle frames).
+    uint16_t step() {
+        if (complete)
+            return 0;
+        sentCount++;
+        if (sentCount >= EDT_ENABLE_REPEAT_COUNT) {
+            complete = true;
+        }
+        return packEdtEnableFrame();
+    }
+};
+
 } // namespace dshot
 } // namespace melty
