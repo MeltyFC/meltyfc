@@ -15,14 +15,14 @@ namespace melty {
 // Creep mode state
 // ============================================================================
 struct CreepState {
-    bool    active;             // Currently in creep mode
-    bool    forcedBySwitch;     // Forced by CH_CREEP_FORCE
+    bool active;         // Currently in creep mode
+    bool forcedBySwitch; // Forced by CH_CREEP_FORCE
 };
 
 struct CreepConfig {
-    uint16_t thresholdRpm;      // Enter creep below this RPM
-    uint16_t hysteresisRpm;     // Exit = threshold + hysteresis
-    uint8_t  numMotors;         // 2 or 3
+    uint16_t thresholdRpm;  // Enter creep below this RPM
+    uint16_t hysteresisRpm; // Exit = threshold + hysteresis
+    uint8_t numMotors;      // 2 or 3
 };
 
 // ============================================================================
@@ -33,8 +33,8 @@ struct CreepConfig {
 // currentRpm: measured RPM (0 if stopped)
 // forceSwitch: CH_CREEP_FORCE active
 // Returns true if creep mode should be active.
-bool creepUpdateState(CreepState& state, float currentRpm,
-                      bool forceSwitch, const CreepConfig& cfg);
+bool creepUpdateState(CreepState& state, float currentRpm, bool forceSwitch,
+                      const CreepConfig& cfg);
 
 // ============================================================================
 // Differential drive output
@@ -47,7 +47,7 @@ bool creepUpdateState(CreepState& state, float currentRpm,
 // motorOut[]: output array (sized for numMotors)
 // N=2: standard diff drive (motors at 0°/180°)
 // N=3: motors 0+1 drive, motor 2 passive (scrub)
-void creepComputeOutput(float stickX, float stickY, float throttleCap,
-                        uint8_t numMotors, float* motorOut);
+void creepComputeOutput(float stickX, float stickY, float throttleCap, uint8_t numMotors,
+                        float* motorOut);
 
 } // namespace melty

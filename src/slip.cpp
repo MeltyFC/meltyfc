@@ -1,13 +1,14 @@
 // MeltyFC — Slip Detection Implementation
 
 #include "slip.hpp"
-#include <cmath>
 #include <algorithm>
+#include <cmath>
 
 namespace melty {
 
 float erpmToMechRpm(uint32_t erpm, uint8_t motorPoles) {
-    if (motorPoles == 0) return 0.0f;
+    if (motorPoles == 0)
+        return 0.0f;
     return static_cast<float>(erpm) / (static_cast<float>(motorPoles) / 2.0f);
 }
 
@@ -26,7 +27,7 @@ float wheelImpliedOmega(float mechRpm, const SlipConfig& cfg) {
 
 float computeSlipPct(float omegaAccel, float omegaWheels) {
     if (omegaWheels < 0.1f) {
-        return 0.0f;  // Avoid division by near-zero
+        return 0.0f; // Avoid division by near-zero
     }
     const float slip = (1.0f - omegaAccel / omegaWheels) * 100.0f;
     return std::clamp(slip, 0.0f, 100.0f);

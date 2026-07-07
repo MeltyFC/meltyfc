@@ -5,24 +5,24 @@
 
 #pragma once
 
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 
 namespace melty {
 
-static constexpr uint8_t HIT_LOG_SIZE = 64;  // Ring buffer capacity
+static constexpr uint8_t HIT_LOG_SIZE = 64; // Ring buffer capacity
 
 struct HitRecord {
-    uint32_t timestampMs;       // When the hit occurred
-    float    peakG;             // Peak g-force of the hit
-    float    omegaAtHit;        // Spin rate at time of hit (rad/s)
+    uint32_t timestampMs; // When the hit occurred
+    float peakG;          // Peak g-force of the hit
+    float omegaAtHit;     // Spin rate at time of hit (rad/s)
 };
 
 struct HitLogger {
     HitRecord entries[HIT_LOG_SIZE];
-    uint8_t   writeIdx;         // Next write position
-    uint16_t  totalHits;        // Lifetime hit counter (wraps at 65535)
-    float     maxPeakG;         // Highest peak-G ever recorded
+    uint8_t writeIdx;   // Next write position
+    uint16_t totalHits; // Lifetime hit counter (wraps at 65535)
+    float maxPeakG;     // Highest peak-G ever recorded
 };
 
 // Initialize the hit logger

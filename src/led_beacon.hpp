@@ -5,8 +5,8 @@
 
 #pragma once
 
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 
 namespace melty {
 
@@ -14,16 +14,16 @@ namespace melty {
 // LED states (priority order — highest first)
 // ============================================================================
 enum class LedState : uint8_t {
-    FAILSAFE,       // Unique red strobe
-    ERROR_BLINK,    // Count-based blink codes
-    LVC_CRIT,       // Red, paired w/ auto spin-down
-    CONFIG,         // Config/cal mode
-    HIT_FLASH,      // Momentary ring blink on hit
-    LVC_WARN,       // Yellow OVERLAY onto current state
-    SPINNING,       // Beacon/POV (beacon color = orientation)
-    ARMED,          // Unmistakably distinct from SAFE at arena distance
-    SAFE,           // Disarmed, zero ESC output — slow dim breathe
-    BOOT,           // Self-test sweep
+    FAILSAFE,    // Unique red strobe
+    ERROR_BLINK, // Count-based blink codes
+    LVC_CRIT,    // Red, paired w/ auto spin-down
+    CONFIG,      // Config/cal mode
+    HIT_FLASH,   // Momentary ring blink on hit
+    LVC_WARN,    // Yellow OVERLAY onto current state
+    SPINNING,    // Beacon/POV (beacon color = orientation)
+    ARMED,       // Unmistakably distinct from SAFE at arena distance
+    SAFE,        // Disarmed, zero ESC output — slow dim breathe
+    BOOT,        // Self-test sweep
 };
 
 // ============================================================================
@@ -38,26 +38,26 @@ struct RGB {
 // ============================================================================
 struct LedConfig {
     uint16_t ledCount;
-    float    arcWidthDeg;       // Beacon arc width in degrees
+    float arcWidthDeg; // Beacon arc width in degrees
 
-    RGB      beaconColorUp;     // Upright beacon color
-    RGB      beaconColorInv;    // Inverted beacon color
-    RGB      safeColor;         // Safe/disarmed breathe
-    RGB      armedColor;        // Armed indicator
-    RGB      failsafeColor;     // Failsafe strobe
-    RGB      lvcWarnColor;      // LVC warning overlay
-    RGB      lvcCritColor;      // LVC critical
+    RGB beaconColorUp;  // Upright beacon color
+    RGB beaconColorInv; // Inverted beacon color
+    RGB safeColor;      // Safe/disarmed breathe
+    RGB armedColor;     // Armed indicator
+    RGB failsafeColor;  // Failsafe strobe
+    RGB lvcWarnColor;   // LVC warning overlay
+    RGB lvcCritColor;   // LVC critical
 };
 
 // ============================================================================
 // LED state machine state
 // ============================================================================
 struct LedStateMachine {
-    LedState activeStates[10];   // Bitfield-like: which states are active
-    uint8_t  activeCount;
-    uint8_t  errorBlinkCode;     // Number of blinks for error state
-    uint32_t stateStartMs;       // When the highest-priority state became active
-    uint32_t lastUpdateMs;       // Last update timestamp
+    LedState activeStates[10]; // Bitfield-like: which states are active
+    uint8_t activeCount;
+    uint8_t errorBlinkCode; // Number of blinks for error state
+    uint32_t stateStartMs;  // When the highest-priority state became active
+    uint32_t lastUpdateMs;  // Last update timestamp
 };
 
 // ============================================================================
@@ -85,8 +85,8 @@ bool ledSmIsLvcWarn(const LedStateMachine& sm);
 
 // Compute LED colors for a stationary (non-spinning) frame.
 // Fills rgbOut[0..ledCount-1] based on active state + elapsed time.
-void ledComputeStationary(const LedStateMachine& sm, const LedConfig& cfg,
-                          uint32_t nowMs, RGB* rgbOut);
+void ledComputeStationary(const LedStateMachine& sm, const LedConfig& cfg, uint32_t nowMs,
+                          RGB* rgbOut);
 
 // ============================================================================
 // Spinning pattern computation
@@ -97,9 +97,8 @@ void ledComputeStationary(const LedStateMachine& sm, const LedConfig& cfg,
 // headingOffset: trim offset (rad)
 // inverted: true if bot is inverted
 // Fills rgbOut[0..ledCount-1].
-void ledComputeSpinning(const LedStateMachine& sm, const LedConfig& cfg,
-                        float phase, float headingOffset, bool inverted,
-                        uint32_t nowMs, RGB* rgbOut);
+void ledComputeSpinning(const LedStateMachine& sm, const LedConfig& cfg, float phase,
+                        float headingOffset, bool inverted, uint32_t nowMs, RGB* rgbOut);
 
 // ============================================================================
 // Helper — compute the beacon arc mask for N LEDs
@@ -126,7 +125,7 @@ bool ledStrobe(uint32_t nowMs, uint32_t periodMs, float dutyCycle);
 // Blink code — N blinks then pause, repeating
 // Returns true during a blink-on period
 // ============================================================================
-bool ledBlinkCode(uint32_t nowMs, uint8_t blinkCount, uint32_t blinkOnMs,
-                  uint32_t blinkOffMs, uint32_t pauseMs);
+bool ledBlinkCode(uint32_t nowMs, uint8_t blinkCount, uint32_t blinkOnMs, uint32_t blinkOffMs,
+                  uint32_t pauseMs);
 
 } // namespace melty

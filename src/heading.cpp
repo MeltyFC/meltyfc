@@ -2,8 +2,8 @@
 // PURE LOGIC — no hardware includes.
 
 #include "heading.hpp"
-#include <cmath>
 #include <algorithm>
+#include <cmath>
 
 namespace melty {
 
@@ -33,23 +33,25 @@ float integratePhase(float phase, float omega, float dt) {
     phase += omega * dt;
     // Wrap to [0, 2π)
     phase = fmodf(phase, 2.0f * M_PI);
-    if (phase < 0.0f) phase += 2.0f * M_PI;
+    if (phase < 0.0f)
+        phase += 2.0f * M_PI;
     return phase;
 }
 
 float computeTranslationAngle(float stickX, float stickY) {
-    return atan2f(stickX, stickY);  // 0 = forward (+Y), CW positive
+    return atan2f(stickX, stickY); // 0 = forward (+Y), CW positive
 }
 
 float computeTranslationMagnitude(float stickX, float stickY, float deadband) {
     const float mag = sqrtf(stickX * stickX + stickY * stickY);
-    if (mag < deadband) return 0.0f;
+    if (mag < deadband)
+        return 0.0f;
     // Scale so that deadband edge = 0, full deflection = 1
     return std::min(1.0f, (mag - deadband) / (1.0f - deadband));
 }
 
-float computeMotorOutput(float motorAngle, float transAngle, float transMag,
-                         float spinThrottle, float windowHalf, float throttleCap) {
+float computeMotorOutput(float motorAngle, float transAngle, float transMag, float spinThrottle,
+                         float windowHalf, float throttleCap) {
     if (transMag < 0.001f) {
         // No translation — spin only
         return std::min(spinThrottle, throttleCap);
@@ -59,7 +61,8 @@ float computeMotorOutput(float motorAngle, float transAngle, float transMag,
     float angleDiff = motorAngle - transAngle;
     // Normalize to [-π, π)
     angleDiff = fmodf(angleDiff + M_PI, 2.0f * M_PI);
-    if (angleDiff < 0.0f) angleDiff += 2.0f * M_PI;
+    if (angleDiff < 0.0f)
+        angleDiff += 2.0f * M_PI;
     angleDiff -= M_PI;
 
     const float absDiff = fabsf(angleDiff);
@@ -82,7 +85,8 @@ float computeMotorOutput(float motorAngle, float transAngle, float transMag,
 
 float computeTrimRate(float stickVal, const TrimConfig& cfg) {
     const float absStick = fabsf(stickVal);
-    if (absStick < 0.02f) return 0.0f;  // Tiny deadband
+    if (absStick < 0.02f)
+        return 0.0f; // Tiny deadband
 
     // Expo curve: mix linear and cubic
     const float linear = absStick;

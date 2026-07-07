@@ -21,21 +21,21 @@ static constexpr uint32_t LOOP_PERIOD_US = 500;
 
 // Forward declarations — each module provides init + update
 namespace melty {
-    // These will be implemented as each module is built (P1–P10)
-    // void sensors_init();
-    // void sensors_update();
-    // void heading_init();
-    // void heading_update(float dt);
-    // void motors_init();
-    // void motors_update();
-    // void crsf_init();
-    // void crsf_update();
-    // void safety_init();
-    // void safety_update();
-    // void led_init();
-    // void led_update();
-    // void config_cli_init();
-    // void config_cli_update();
+// These will be implemented as each module is built (P1–P10)
+// void sensors_init();
+// void sensors_update();
+// void heading_init();
+// void heading_update(float dt);
+// void motors_init();
+// void motors_update();
+// void crsf_init();
+// void crsf_update();
+// void safety_init();
+// void safety_update();
+// void led_init();
+// void led_update();
+// void config_cli_init();
+// void config_cli_update();
 }
 
 void setup() {

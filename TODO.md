@@ -93,7 +93,7 @@
 - [x] CRSF telemetry: flight mode frame builder
 - [x] CRSF telemetry: battery sensor frame builder
 - [x] Full test suite: 180 tests, 0 failures
-- [ ] Lint clean (clang-format + cppcheck)
+- [x] Lint clean (clang-format + cppcheck — 0 format violations, minor cppcheck style notes only)
 - [x] PARAMS.md generated from registry
 - [x] CLI_REFERENCE.md
 - [x] TUNING.md

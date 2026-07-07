@@ -2,12 +2,12 @@
 // See spec §11B.
 
 #include "config_cli.hpp"
-#include "param_registry.h"
 #include "config_store.hpp"
-#include <cstring>
+#include "param_registry.h"
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
-#include <cmath>
+#include <cstring>
 
 namespace melty {
 
@@ -15,15 +15,21 @@ namespace melty {
 // Tokenizer — split input into command + up to 2 args
 // ============================================================================
 static void skipWhitespace(char*& p) {
-    while (*p == ' ' || *p == '\t') p++;
+    while (*p == ' ' || *p == '\t')
+        p++;
 }
 
 static char* nextToken(char*& p) {
     skipWhitespace(p);
-    if (*p == '\0') return nullptr;
+    if (*p == '\0')
+        return nullptr;
     char* start = p;
-    while (*p != '\0' && *p != ' ' && *p != '\t' && *p != '\r' && *p != '\n') p++;
-    if (*p != '\0') { *p = '\0'; p++; }
+    while (*p != '\0' && *p != ' ' && *p != '\t' && *p != '\r' && *p != '\n')
+        p++;
+    if (*p != '\0') {
+        *p = '\0';
+        p++;
+    }
     return start;
 }
 
@@ -32,22 +38,25 @@ static char* nextToken(char*& p) {
 // ============================================================================
 CliParsed parseCli(char* input) {
     CliParsed result = {CliCommand::NONE, nullptr, nullptr};
-    if (input == nullptr) return result;
+    if (input == nullptr)
+        return result;
 
     // Strip trailing newline/CR
     size_t len = strlen(input);
-    while (len > 0 && (input[len-1] == '\n' || input[len-1] == '\r')) {
+    while (len > 0 && (input[len - 1] == '\n' || input[len - 1] == '\r')) {
         input[--len] = '\0';
     }
 
     char* p = input;
     char* cmd = nextToken(p);
-    if (cmd == nullptr) return result;
+    if (cmd == nullptr)
+        return result;
 
     // Case-insensitive command matching
     // Convert command to lowercase in-place
     for (char* c = cmd; *c; c++) {
-        if (*c >= 'A' && *c <= 'Z') *c += 32;
+        if (*c >= 'A' && *c <= 'Z')
+            *c += 32;
     }
 
     if (strcmp(cmd, "get") == 0) {
@@ -64,7 +73,7 @@ CliParsed parseCli(char* input) {
     } else if (strcmp(cmd, "defaults") == 0) {
         result.command = CliCommand::DEFAULTS;
     } else if (strcmp(cmd, "list") == 0) {
-        char* arg = nextToken(p);
+        const char* arg = nextToken(p);
         if (arg && strcmp(arg, "json") == 0) {
             result.command = CliCommand::LIST_JSON;
         } else {
@@ -107,16 +116,18 @@ int formatDump(const ConfigData& cfg, char* buf, size_t bufLen) {
     int written = 0;
     int n;
 
-    n = snprintf(buf + written, bufLen - written,
-        "# MeltyFC config dump — schema v%u\r\n", ConfigData::SCHEMA_VERSION);
-    if (n > 0) written += n;
+    n = snprintf(buf + written, bufLen - written, "# MeltyFC config dump — schema v%u\r\n",
+                 ConfigData::SCHEMA_VERSION);
+    if (n > 0)
+        written += n;
 
     for (size_t i = 0; i < PARAM_REGISTRY_SIZE && written < (int)bufLen - 64; i++) {
         const ParamDef& def = PARAM_REGISTRY[i];
         char valBuf[32];
         formatParam(cfg, def, valBuf, sizeof(valBuf));
         n = snprintf(buf + written, bufLen - written, "set %s %s\r\n", def.name, valBuf);
-        if (n > 0) written += n;
+        if (n > 0)
+            written += n;
     }
 
     return written;
@@ -129,19 +140,18 @@ int formatList(char* buf, size_t bufLen) {
     int written = 0;
     int n;
 
-    n = snprintf(buf + written, bufLen - written,
-        "%-24s %-8s %-8s %-8s %-6s %s\r\n",
-        "NAME", "TYPE", "MIN", "MAX", "UNIT", "DESCRIPTION");
-    if (n > 0) written += n;
+    n = snprintf(buf + written, bufLen - written, "%-24s %-8s %-8s %-8s %-6s %s\r\n", "NAME",
+                 "TYPE", "MIN", "MAX", "UNIT", "DESCRIPTION");
+    if (n > 0)
+        written += n;
 
-    n = snprintf(buf + written, bufLen - written,
-        "%-24s %-8s %-8s %-8s %-6s %s\r\n",
-        "----", "----", "---", "---", "----", "-----------");
-    if (n > 0) written += n;
+    n = snprintf(buf + written, bufLen - written, "%-24s %-8s %-8s %-8s %-6s %s\r\n", "----",
+                 "----", "---", "---", "----", "-----------");
+    if (n > 0)
+        written += n;
 
-    static const char* typeNames[] = {
-        "uint8", "uint16", "uint32", "int8", "int16", "int32", "float", "bool", "enum"
-    };
+    static const char* typeNames[] = {"uint8", "uint16", "uint32", "int8", "int16",
+                                      "int32", "float",  "bool",   "enum"};
 
     for (size_t i = 0; i < PARAM_REGISTRY_SIZE && written < (int)bufLen - 128; i++) {
         const ParamDef& def = PARAM_REGISTRY[i];
@@ -156,10 +166,10 @@ int formatList(char* buf, size_t bufLen) {
             snprintf(maxBuf, sizeof(maxBuf), "%d", (int)def.max);
         }
 
-        n = snprintf(buf + written, bufLen - written,
-            "%-24s %-8s %-8s %-8s %-6s %s\r\n",
-            def.name, typeName, minBuf, maxBuf, def.unit, def.description);
-        if (n > 0) written += n;
+        n = snprintf(buf + written, bufLen - written, "%-24s %-8s %-8s %-8s %-6s %s\r\n", def.name,
+                     typeName, minBuf, maxBuf, def.unit, def.description);
+        if (n > 0)
+            written += n;
     }
 
     return written;
@@ -172,12 +182,12 @@ int formatListJson(char* buf, size_t bufLen) {
     int written = 0;
     int n;
 
-    static const char* typeNames[] = {
-        "uint8", "uint16", "uint32", "int8", "int16", "int32", "float", "bool", "enum"
-    };
+    static const char* typeNames[] = {"uint8", "uint16", "uint32", "int8", "int16",
+                                      "int32", "float",  "bool",   "enum"};
 
     n = snprintf(buf + written, bufLen - written, "[\r\n");
-    if (n > 0) written += n;
+    if (n > 0)
+        written += n;
 
     for (size_t i = 0; i < PARAM_REGISTRY_SIZE && written < (int)bufLen - 256; i++) {
         const ParamDef& def = PARAM_REGISTRY[i];
@@ -185,20 +195,20 @@ int formatListJson(char* buf, size_t bufLen) {
         const char* comma = (i < PARAM_REGISTRY_SIZE - 1) ? "," : "";
 
         n = snprintf(buf + written, bufLen - written,
-            "  {\"name\":\"%s\",\"type\":\"%s\",\"min\":%.4f,\"max\":%.4f,"
-            "\"default\":%.4f,\"unit\":\"%s\",\"desc\":\"%s\","
-            "\"readonly\":%s,\"reboot\":%s}%s\r\n",
-            def.name, typeName,
-            (double)def.min, (double)def.max, (double)def.defaultVal,
-            def.unit, def.description,
-            (def.flags & ParamFlags::READONLY) ? "true" : "false",
-            (def.flags & ParamFlags::REQUIRES_REBOOT) ? "true" : "false",
-            comma);
-        if (n > 0) written += n;
+                     "  {\"name\":\"%s\",\"type\":\"%s\",\"min\":%.4f,\"max\":%.4f,"
+                     "\"default\":%.4f,\"unit\":\"%s\",\"desc\":\"%s\","
+                     "\"readonly\":%s,\"reboot\":%s}%s\r\n",
+                     def.name, typeName, (double)def.min, (double)def.max, (double)def.defaultVal,
+                     def.unit, def.description,
+                     (def.flags & ParamFlags::READONLY) ? "true" : "false",
+                     (def.flags & ParamFlags::REQUIRES_REBOOT) ? "true" : "false", comma);
+        if (n > 0)
+            written += n;
     }
 
     n = snprintf(buf + written, bufLen - written, "]\r\n");
-    if (n > 0) written += n;
+    if (n > 0)
+        written += n;
 
     return written;
 }
@@ -208,19 +218,18 @@ int formatListJson(char* buf, size_t bufLen) {
 // ============================================================================
 int formatHelp(char* buf, size_t bufLen) {
     return snprintf(buf, bufLen,
-        "MeltyFC CLI commands:\r\n"
-        "  get <name>       — read parameter value\r\n"
-        "  set <name> <val> — set parameter value\r\n"
-        "  dump             — dump all params (replayable)\r\n"
-        "  save             — persist config to flash\r\n"
-        "  defaults         — reset all params to defaults\r\n"
-        "  list             — list all parameters\r\n"
-        "  list json        — list params as JSON (for configurator)\r\n"
-        "  status           — live telemetry (omega, RPM, orientation...)\r\n"
-        "  cal              — enter calibration mode\r\n"
-        "  version          — firmware version\r\n"
-        "  help             — this message\r\n"
-    );
+                    "MeltyFC CLI commands:\r\n"
+                    "  get <name>       — read parameter value\r\n"
+                    "  set <name> <val> — set parameter value\r\n"
+                    "  dump             — dump all params (replayable)\r\n"
+                    "  save             — persist config to flash\r\n"
+                    "  defaults         — reset all params to defaults\r\n"
+                    "  list             — list all parameters\r\n"
+                    "  list json        — list params as JSON (for configurator)\r\n"
+                    "  status           — live telemetry (omega, RPM, orientation...)\r\n"
+                    "  cal              — enter calibration mode\r\n"
+                    "  version          — firmware version\r\n"
+                    "  help             — this message\r\n");
 }
 
 // ============================================================================
@@ -237,31 +246,35 @@ int formatHelp(char* buf, size_t bufLen) {
 
 int formatVersion(char* buf, size_t bufLen) {
     return snprintf(buf, bufLen,
-        "MeltyFC v%s\r\n"
-        "Target: %s\r\n"
-        "Schema: v%u\r\n"
-        "Params: %zu\r\n",
-        MELTYFC_VERSION, MELTYFC_TARGET,
-        ConfigData::SCHEMA_VERSION,
-        PARAM_REGISTRY_SIZE);
+                    "MeltyFC v%s\r\n"
+                    "Target: %s\r\n"
+                    "Schema: v%u\r\n"
+                    "Params: %zu\r\n",
+                    MELTYFC_VERSION, MELTYFC_TARGET, ConfigData::SCHEMA_VERSION,
+                    PARAM_REGISTRY_SIZE);
 }
 
 // ============================================================================
 // Execute `set` — validate and apply
 // ============================================================================
 const char* executeSet(ConfigData& cfg, const char* name, const char* valueStr) {
-    if (name == nullptr) return "Error: missing parameter name\r\n";
-    if (valueStr == nullptr) return "Error: missing value\r\n";
+    if (name == nullptr)
+        return "Error: missing parameter name\r\n";
+    if (valueStr == nullptr)
+        return "Error: missing value\r\n";
 
     const ParamDef* def = findParam(name);
-    if (def == nullptr) return "Error: unknown parameter\r\n";
+    if (def == nullptr)
+        return "Error: unknown parameter\r\n";
 
-    if (def->flags & ParamFlags::READONLY) return "Error: parameter is read-only\r\n";
+    if (def->flags & ParamFlags::READONLY)
+        return "Error: parameter is read-only\r\n";
 
     // Parse value
     char* endptr;
     float value = strtof(valueStr, &endptr);
-    if (endptr == valueStr) return "Error: invalid value\r\n";
+    if (endptr == valueStr)
+        return "Error: invalid value\r\n";
 
     // Special handling for bool-like strings
     if (def->type == ParamType::BOOL || def->type == ParamType::UINT8) {
@@ -274,8 +287,9 @@ const char* executeSet(ConfigData& cfg, const char* name, const char* valueStr) 
         }
     }
 
-    if (!setParamFloat(cfg, *def, value)) return "Error: failed to set value\r\n";
-    return nullptr;  // Success
+    if (!setParamFloat(cfg, *def, value))
+        return "Error: failed to set value\r\n";
+    return nullptr; // Success
 }
 
 } // namespace melty

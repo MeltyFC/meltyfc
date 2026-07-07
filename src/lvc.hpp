@@ -13,22 +13,22 @@ namespace melty {
 // ============================================================================
 enum class LvcLevel : uint8_t {
     OK,
-    WARN,       // Below warn threshold — TX warning, LED overlay
-    CRITICAL,   // Below crit threshold — auto spin-down
+    WARN,     // Below warn threshold — TX warning, LED overlay
+    CRITICAL, // Below crit threshold — auto spin-down
 };
 
 struct LvcConfig {
-    float   warnVolts;      // Per-cell warn threshold (V)
-    float   critVolts;      // Per-cell crit threshold (V)
-    uint8_t cellCount;      // 0 = auto-detect
+    float warnVolts;   // Per-cell warn threshold (V)
+    float critVolts;   // Per-cell crit threshold (V)
+    uint8_t cellCount; // 0 = auto-detect
 };
 
 struct LvcState {
-    uint8_t  detectedCells;  // Auto-detected cell count
-    float    packVoltage;    // Total pack voltage (V)
-    float    cellVoltage;    // Per-cell voltage (V)
+    uint8_t detectedCells; // Auto-detected cell count
+    float packVoltage;     // Total pack voltage (V)
+    float cellVoltage;     // Per-cell voltage (V)
     LvcLevel level;
-    bool     spinDownActive; // Auto spin-down triggered
+    bool spinDownActive; // Auto spin-down triggered
 };
 
 // ============================================================================
@@ -49,7 +49,6 @@ LvcLevel lvcUpdate(LvcState& state, float packVoltage, const LvcConfig& cfg);
 // Get the capped throttle for spin-down mode.
 // Returns a throttle multiplier (0.0 to 1.0).
 // When critical: ramps down over ~2 seconds.
-float lvcSpinDownThrottle(const LvcState& state, float currentThrottle,
-                          uint32_t critDurationMs);
+float lvcSpinDownThrottle(const LvcState& state, float currentThrottle, uint32_t critDurationMs);
 
 } // namespace melty

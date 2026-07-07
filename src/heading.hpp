@@ -5,42 +5,42 @@
 
 #pragma once
 
-#include <cstdint>
 #include <cmath>
+#include <cstdint>
 
 namespace melty {
 
 struct HeadingState {
-    float omega;            // Current spin rate (rad/s)
-    float phase;            // Current bot angle vs world (0..2π)
-    float headingOffset;    // Trim offset (rad)
-    bool  sensorRailed;     // Outer accel near full scale
-    bool  hitDetected;      // Impact detected this cycle
-    bool  gyroBlanking;     // Gyro readings suppressed (hit window)
-    bool  lowSpeedMode;     // Using ICM instead of H3LIS
+    float omega;         // Current spin rate (rad/s)
+    float phase;         // Current bot angle vs world (0..2π)
+    float headingOffset; // Trim offset (rad)
+    bool sensorRailed;   // Outer accel near full scale
+    bool hitDetected;    // Impact detected this cycle
+    bool gyroBlanking;   // Gyro readings suppressed (hit window)
+    bool lowSpeedMode;   // Using ICM instead of H3LIS
 };
 
 struct HeadingConfig {
-    float drEff;            // Effective radius difference (m)
-    float omegaSlewMax;     // Max omega change rate (rad/s²)
-    float hitThreshG;       // Hit detection threshold (g)
-    float gyroBlankMs;      // Gyro blanking duration (ms)
-    float lowspeedThreshRpm;// Switch to low-speed source below this
-    float railedThreshold;  // Fraction of full scale (e.g., 0.95)
-    float fullScaleG;       // H3LIS full scale (400g)
+    float drEff;             // Effective radius difference (m)
+    float omegaSlewMax;      // Max omega change rate (rad/s²)
+    float hitThreshG;        // Hit detection threshold (g)
+    float gyroBlankMs;       // Gyro blanking duration (ms)
+    float lowspeedThreshRpm; // Switch to low-speed source below this
+    float railedThreshold;   // Fraction of full scale (e.g., 0.95)
+    float fullScaleG;        // H3LIS full scale (400g)
 };
 
 struct RpmHoldConfig {
-    bool  enabled;
+    bool enabled;
     float targetRpm;
-    float kp;               // P gain
-    float feedforward;       // Base throttle fraction
+    float kp;          // P gain
+    float feedforward; // Base throttle fraction
 };
 
 struct TrimConfig {
-    float rateFine;         // deg/s at min deflection
-    float rateMax;          // deg/s at full deflection
-    float expo;             // 0.0=linear, 1.0=max expo
+    float rateFine; // deg/s at min deflection
+    float rateMax;  // deg/s at full deflection
+    float expo;     // 0.0=linear, 1.0=max expo
 };
 
 // ============================================================================
@@ -70,8 +70,8 @@ float computeTranslationMagnitude(float stickX, float stickY, float deadband);
 // spinThrottle: base spin throttle (0–1)
 // windowHalf: translation window half-width (rad)
 // throttleCap: absolute max output (0–1)
-float computeMotorOutput(float motorAngle, float transAngle, float transMag,
-                         float spinThrottle, float windowHalf, float throttleCap);
+float computeMotorOutput(float motorAngle, float transAngle, float transMag, float spinThrottle,
+                         float windowHalf, float throttleCap);
 
 // Heading trim rate from stick deflection (with expo curve)
 // stickVal: -1.0 to 1.0
@@ -89,7 +89,11 @@ float applyInversion(float transAngle, bool inverted);
 bool detectHit(float aOuterRaw, float expectedG, float thresholdG);
 
 // Omega from RPM and vice versa
-inline float rpmToOmega(float rpm) { return rpm * (2.0f * M_PI / 60.0f); }
-inline float omegaToRpm(float omega) { return omega * (60.0f / (2.0f * M_PI)); }
+inline float rpmToOmega(float rpm) {
+    return rpm * (2.0f * M_PI / 60.0f);
+}
+inline float omegaToRpm(float omega) {
+    return omega * (60.0f / (2.0f * M_PI));
+}
 
 } // namespace melty

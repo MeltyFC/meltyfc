@@ -6,8 +6,8 @@
 
 namespace melty {
 
-bool creepUpdateState(CreepState& state, float currentRpm,
-                      bool forceSwitch, const CreepConfig& cfg) {
+bool creepUpdateState(CreepState& state, float currentRpm, bool forceSwitch,
+                      const CreepConfig& cfg) {
     state.forcedBySwitch = forceSwitch;
 
     if (forceSwitch) {
@@ -30,18 +30,20 @@ bool creepUpdateState(CreepState& state, float currentRpm,
     return state.active;
 }
 
-void creepComputeOutput(float stickX, float stickY, float throttleCap,
-                        uint8_t numMotors, float* motorOut) {
+void creepComputeOutput(float stickX, float stickY, float throttleCap, uint8_t numMotors,
+                        float* motorOut) {
     // Standard differential drive:
     // left  = stickY + stickX
     // right = stickY - stickX
-    float left  = stickY + stickX;
+    float left = stickY + stickX;
     float right = stickY - stickX;
 
     // Clamp to [-throttleCap, +throttleCap]
     auto clamp = [throttleCap](float v) -> float {
-        if (v > throttleCap) return throttleCap;
-        if (v < -throttleCap) return -throttleCap;
+        if (v > throttleCap)
+            return throttleCap;
+        if (v < -throttleCap)
+            return -throttleCap;
         return v;
     };
 

@@ -5,8 +5,8 @@
 
 #pragma once
 
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 
 namespace melty {
 
@@ -14,15 +14,15 @@ namespace melty {
 // Blackbox record — fixed-size for ring buffer alignment
 // ============================================================================
 struct __attribute__((packed)) BlackboxRecord {
-    uint32_t timestampMs;       // Timestamp
-    float    omega;             // Spin rate (rad/s)
-    float    phase;             // Bot phase (rad)
-    float    packVoltage;       // Pack voltage (V)
-    float    slipPct;           // Slip percentage (0-100)
-    uint8_t  orientation;       // 0=upright, 1=inverted
-    uint8_t  hitDetected;       // Hit on this sample
-    uint8_t  armState;          // 0=disarmed, 1=armed, 2=failsafe
-    uint8_t  reserved;          // Alignment padding
+    uint32_t timestampMs; // Timestamp
+    float omega;          // Spin rate (rad/s)
+    float phase;          // Bot phase (rad)
+    float packVoltage;    // Pack voltage (V)
+    float slipPct;        // Slip percentage (0-100)
+    uint8_t orientation;  // 0=upright, 1=inverted
+    uint8_t hitDetected;  // Hit on this sample
+    uint8_t armState;     // 0=disarmed, 1=armed, 2=failsafe
+    uint8_t reserved;     // Alignment padding
     // Total: 4+4+4+4+4+1+1+1+1 = 24 bytes
 };
 
@@ -32,11 +32,11 @@ static_assert(sizeof(BlackboxRecord) == 24, "BlackboxRecord must be 24 bytes");
 // Ring buffer state (pure logic — tracks write position)
 // ============================================================================
 struct BlackboxState {
-    uint32_t writeOffset;       // Current write offset in flash (bytes)
-    uint32_t flashSize;         // Total flash available (bytes)
-    uint32_t sectorSize;        // Flash sector size (bytes, e.g., 4096)
-    uint32_t recordCount;       // Total records written (lifetime, wraps)
-    bool     wrapped;           // Has the ring wrapped around?
+    uint32_t writeOffset; // Current write offset in flash (bytes)
+    uint32_t flashSize;   // Total flash available (bytes)
+    uint32_t sectorSize;  // Flash sector size (bytes, e.g., 4096)
+    uint32_t recordCount; // Total records written (lifetime, wraps)
+    bool wrapped;         // Has the ring wrapped around?
 };
 
 // ============================================================================

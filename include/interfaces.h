@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 
 namespace melty {
 
@@ -77,14 +77,14 @@ struct IImu {
 // RC Link (CRSF/ELRS)
 // ============================================================================
 struct RcChannels {
-    int16_t channels[16];   // Raw CRSF channel values (typically 172–1811)
+    int16_t channels[16]; // Raw CRSF channel values (typically 172–1811)
     uint8_t channelCount;
     bool valid;
 };
 
 struct LinkStats {
     int8_t rssi;
-    uint8_t lq;             // Link quality 0–100%
+    uint8_t lq; // Link quality 0–100%
     int8_t snr;
 };
 
@@ -145,9 +145,9 @@ struct ILedStrip {
 struct IConfigStore {
     virtual ~IConfigStore() = default;
 
-    virtual bool load() = 0;            // Load from flash; returns false if corrupt/missing
-    virtual bool save() = 0;            // Persist current params to flash
-    virtual void defaults() = 0;        // Reset all params to compiled defaults
+    virtual bool load() = 0;     // Load from flash; returns false if corrupt/missing
+    virtual bool save() = 0;     // Persist current params to flash
+    virtual void defaults() = 0; // Reset all params to compiled defaults
     virtual uint16_t schemaVersion() const = 0;
 };
 
@@ -165,8 +165,8 @@ struct IFlashStorage {
     virtual bool eraseSector(uint32_t addr) = 0;
     virtual bool eraseChip() = 0;
 
-    virtual uint32_t capacity() const = 0;          // Total bytes
-    virtual uint32_t sectorSize() const = 0;        // Erase granularity
+    virtual uint32_t capacity() const = 0;   // Total bytes
+    virtual uint32_t sectorSize() const = 0; // Erase granularity
 };
 
 // ============================================================================

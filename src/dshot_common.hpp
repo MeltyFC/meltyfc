@@ -50,9 +50,9 @@ bool validateCrc(uint16_t frame);
 //   Bit 0 high = 105 ticks (37.5%)
 
 struct DshotTimingConfig {
-    uint16_t bitPeriodTicks;    // Timer ARR for one bit
-    uint16_t bit1HighTicks;     // Compare value for bit=1
-    uint16_t bit0HighTicks;     // Compare value for bit=0
+    uint16_t bitPeriodTicks; // Timer ARR for one bit
+    uint16_t bit1HighTicks;  // Compare value for bit=1
+    uint16_t bit0HighTicks;  // Compare value for bit=0
 };
 
 // Calculate timing for a given timer clock frequency and DShot bitrate
@@ -60,8 +60,7 @@ DshotTimingConfig calculateTiming(uint32_t timerClockHz, uint32_t dshotBitrate);
 
 // Encode a 16-bit frame into a 16-element compare-buffer for DMA
 // buf must have space for 16 entries (+ optional 1 reset entry)
-void encodeToCompareBuffer(uint16_t frame, const DshotTimingConfig& timing,
-                           uint16_t* buf);
+void encodeToCompareBuffer(uint16_t frame, const DshotTimingConfig& timing, uint16_t* buf);
 
 // ============================================================================
 // Bidirectional DShot: GCR (5-bit to 4-bit) decode
@@ -91,19 +90,19 @@ uint32_t periodToErpm(uint16_t periodUs);
 // ============================================================================
 
 enum DshotCommand : uint16_t {
-    DSHOT_CMD_BEEP1             = 1,
-    DSHOT_CMD_BEEP2             = 2,
-    DSHOT_CMD_BEEP3             = 3,
-    DSHOT_CMD_BEEP4             = 4,
-    DSHOT_CMD_BEEP5             = 5,
-    DSHOT_CMD_INFO_REQUEST      = 6,
-    DSHOT_CMD_SPIN_DIRECTION_1  = 7,
-    DSHOT_CMD_SPIN_DIRECTION_2  = 8,
-    DSHOT_CMD_3D_MODE_OFF       = 9,
-    DSHOT_CMD_3D_MODE_ON        = 10,
-    DSHOT_CMD_SAVE_SETTINGS     = 12,
+    DSHOT_CMD_BEEP1 = 1,
+    DSHOT_CMD_BEEP2 = 2,
+    DSHOT_CMD_BEEP3 = 3,
+    DSHOT_CMD_BEEP4 = 4,
+    DSHOT_CMD_BEEP5 = 5,
+    DSHOT_CMD_INFO_REQUEST = 6,
+    DSHOT_CMD_SPIN_DIRECTION_1 = 7,
+    DSHOT_CMD_SPIN_DIRECTION_2 = 8,
+    DSHOT_CMD_3D_MODE_OFF = 9,
+    DSHOT_CMD_3D_MODE_ON = 10,
+    DSHOT_CMD_SAVE_SETTINGS = 12,
     DSHOT_CMD_BIDIR_EDT_MODE_ON = 13,
-    DSHOT_CMD_BIDIR_EDT_MODE_OFF= 14,
+    DSHOT_CMD_BIDIR_EDT_MODE_OFF = 14,
 };
 
 } // namespace dshot

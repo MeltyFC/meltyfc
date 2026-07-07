@@ -34,8 +34,8 @@ enum class CliCommand {
 // ============================================================================
 struct CliParsed {
     CliCommand command;
-    const char* arg1;       // For GET: param name. For SET: param name.
-    const char* arg2;       // For SET: value string.
+    const char* arg1; // For GET: param name. For SET: param name.
+    const char* arg2; // For SET: value string.
 };
 
 // Parse a CLI input line into a command + args.

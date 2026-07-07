@@ -5,74 +5,74 @@
 
 #pragma once
 
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 
 namespace melty {
 
 // ============================================================================
 // CRSF constants
 // ============================================================================
-static constexpr uint8_t  CRSF_SYNC_BYTE       = 0xC8;
-static constexpr uint8_t  CRSF_SYNC_BYTE_ALT   = 0xEE; // EdgeTX agent address
-static constexpr size_t   CRSF_MAX_FRAME_SIZE  = 64;
-static constexpr size_t   CRSF_MAX_CHANNELS    = 16;
-static constexpr uint16_t CRSF_CHANNEL_MID     = 992;  // Center value
-static constexpr uint16_t CRSF_CHANNEL_MIN     = 172;  // Minimum
-static constexpr uint16_t CRSF_CHANNEL_MAX     = 1811; // Maximum
+static constexpr uint8_t CRSF_SYNC_BYTE = 0xC8;
+static constexpr uint8_t CRSF_SYNC_BYTE_ALT = 0xEE; // EdgeTX agent address
+static constexpr size_t CRSF_MAX_FRAME_SIZE = 64;
+static constexpr size_t CRSF_MAX_CHANNELS = 16;
+static constexpr uint16_t CRSF_CHANNEL_MID = 992;  // Center value
+static constexpr uint16_t CRSF_CHANNEL_MIN = 172;  // Minimum
+static constexpr uint16_t CRSF_CHANNEL_MAX = 1811; // Maximum
 
 // Frame types
-static constexpr uint8_t CRSF_FRAMETYPE_RC_CHANNELS    = 0x16;
-static constexpr uint8_t CRSF_FRAMETYPE_LINK_STATS     = 0x14;
-static constexpr uint8_t CRSF_FRAMETYPE_FLIGHT_MODE    = 0x21;
-static constexpr uint8_t CRSF_FRAMETYPE_BATTERY        = 0x08;
-static constexpr uint8_t CRSF_FRAMETYPE_DEVICE_INFO    = 0x29;
+static constexpr uint8_t CRSF_FRAMETYPE_RC_CHANNELS = 0x16;
+static constexpr uint8_t CRSF_FRAMETYPE_LINK_STATS = 0x14;
+static constexpr uint8_t CRSF_FRAMETYPE_FLIGHT_MODE = 0x21;
+static constexpr uint8_t CRSF_FRAMETYPE_BATTERY = 0x08;
+static constexpr uint8_t CRSF_FRAMETYPE_DEVICE_INFO = 0x29;
 
 // Device addresses
-static constexpr uint8_t CRSF_ADDRESS_FC              = 0xC8;
-static constexpr uint8_t CRSF_ADDRESS_TX              = 0xEA;
-static constexpr uint8_t CRSF_ADDRESS_RX              = 0xEC;
+static constexpr uint8_t CRSF_ADDRESS_FC = 0xC8;
+static constexpr uint8_t CRSF_ADDRESS_TX = 0xEA;
+static constexpr uint8_t CRSF_ADDRESS_RX = 0xEC;
 
 // ============================================================================
 // Parsed channel data
 // ============================================================================
 struct CrsfChannels {
-    uint16_t ch[CRSF_MAX_CHANNELS];  // Raw 11-bit values (172–1811)
-    bool     valid;                   // CRC passed
-    uint32_t timestamp;               // When parsed (caller sets)
+    uint16_t ch[CRSF_MAX_CHANNELS]; // Raw 11-bit values (172–1811)
+    bool valid;                     // CRC passed
+    uint32_t timestamp;             // When parsed (caller sets)
 };
 
 // ============================================================================
 // Link statistics
 // ============================================================================
 struct CrsfLinkStats {
-    uint8_t  uplinkRssi1;
-    uint8_t  uplinkRssi2;
-    uint8_t  uplinkLinkQuality;
-    int8_t   uplinkSnr;
-    uint8_t  activeAntenna;
-    uint8_t  rfMode;
-    uint8_t  uplinkTxPower;
-    uint8_t  downlinkRssi;
-    uint8_t  downlinkLinkQuality;
-    int8_t   downlinkSnr;
-    bool     valid;
+    uint8_t uplinkRssi1;
+    uint8_t uplinkRssi2;
+    uint8_t uplinkLinkQuality;
+    int8_t uplinkSnr;
+    uint8_t activeAntenna;
+    uint8_t rfMode;
+    uint8_t uplinkTxPower;
+    uint8_t downlinkRssi;
+    uint8_t downlinkLinkQuality;
+    int8_t downlinkSnr;
+    bool valid;
 };
 
 // ============================================================================
 // Parser state machine
 // ============================================================================
 enum class CrsfParserState : uint8_t {
-    SYNC,       // Waiting for sync byte
-    LENGTH,     // Reading frame length
-    PAYLOAD,    // Reading frame payload + CRC
+    SYNC,    // Waiting for sync byte
+    LENGTH,  // Reading frame length
+    PAYLOAD, // Reading frame payload + CRC
 };
 
 struct CrsfParser {
     CrsfParserState state;
-    uint8_t  frameBuf[CRSF_MAX_FRAME_SIZE];
-    uint8_t  frameLen;      // Expected frame length (from header)
-    uint8_t  frameIdx;      // Current position in buffer
+    uint8_t frameBuf[CRSF_MAX_FRAME_SIZE];
+    uint8_t frameLen; // Expected frame length (from header)
+    uint8_t frameIdx; // Current position in buffer
 };
 
 // ============================================================================
@@ -121,8 +121,7 @@ bool crsfChannelToBool(uint16_t raw);
 size_t crsfBuildFlightMode(uint8_t* outBuf, size_t bufLen, const char* modeText);
 
 // Build battery sensor frame (0x08) — voltage, current, capacity, remaining
-size_t crsfBuildBattery(uint8_t* outBuf, size_t bufLen,
-                        float voltage, float current,
+size_t crsfBuildBattery(uint8_t* outBuf, size_t bufLen, float voltage, float current,
                         uint32_t capacityMah, uint8_t remainingPct);
 
 } // namespace melty

@@ -5,8 +5,8 @@
 #pragma once
 
 #include "param_registry.h"
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 
 namespace melty {
 

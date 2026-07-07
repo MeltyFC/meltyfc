@@ -18,9 +18,9 @@ struct SlipConfig {
 };
 
 struct SlipResult {
-    float slipPct;          // 0–100%, per motor or aggregate
-    bool  warning;          // Sustained slip above threshold
-    float omegaWheels;      // Wheel-implied bot omega (rad/s)
+    float slipPct;     // 0–100%, per motor or aggregate
+    bool warning;      // Sustained slip above threshold
+    float omegaWheels; // Wheel-implied bot omega (rad/s)
 };
 
 // Convert eRPM to mechanical RPM: mech_rpm = erpm / (poles / 2)
