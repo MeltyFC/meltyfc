@@ -90,3 +90,23 @@ ports unchanged. On F7/H7: disable cache before breadcrumb writes in fault path.
 - Generic board IDs often don't exist — use Nucleo + `board_build.mcu` override
 - Family defines (`STM32F7xx`) are NOT auto-set — add to `build_flags`
 - `build_src_filter` must include `hal/<family>/` and exclude other families
+
+## WS2812 Double-Buffer Amendment
+
+The v1 spec (§3) mandated DMA + double-buffer for WS2812. The current
+implementation uses **single-buffer with busy-check** (ws2812Busy() gates
+new writes). This is an explicit amendment, not an oversight:
+
+1. Hardware DMA double-buffering (DMA_DOUBLE_BUFFER_M0) requires the DMA
+   stream to swap buffer pointers on transfer-complete — complex to set up
+   and test without hardware.
+2. Single-buffer with busy-check prevents render-during-transfer (the
+   actual failure mode double-buffering prevents).
+3. POV display (the use case requiring seamless updates) is the last v1
+   feature (P10). Double-buffer will be implemented during POV work when
+   we have hardware to validate the buffer swap timing.
+4. For non-POV LED states (beacon, status, arm indicator), single-buffer
+   at ~30 FPS is more than sufficient.
+
+**Status: deferred to P10 (POV). Single-buffer busy-check provides
+correctness guarantee for all pre-POV use cases.**

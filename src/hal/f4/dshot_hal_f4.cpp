@@ -42,11 +42,9 @@ static constexpr uint8_t NUM_MOTORS = 4;
 // Actually: if APB2 prescaler != 1, timer clock = APB2 * 2
 // Crux F405: SYSCLK=168, AHB=168, APB2=84 → timer clock = 84*2 = 168MHz
 // But with default Arduino core, timer clock might be 84MHz. Use 84MHz to be safe.
-static constexpr uint32_t TIMER_CLOCK_HZ = 84000000;
-
-// DShot300 timing
-static const dshot::DshotTimingConfig dshotTiming =
-    dshot::calculateTiming(TIMER_CLOCK_HZ, DSHOT_BITRATE_HZ);
+// DShot300 timing — computed at init from SystemCoreClock (I-12)
+// NOT hardcoded: if clock config is wrong, timing is wrong → ESC sees garbage → fail safe
+static dshot::DshotTimingConfig dshotTiming;
 
 // ============================================================================
 // DMA buffers — must NOT be in CCM (invariant I-11)
@@ -117,10 +115,17 @@ void dshotInit() {
         DMA_BUFFER_ASSERT(telemCaptureBuf[i]);
     }
 
-    // Zero the compare buffers
-    for (int i = 0; i < NUM_MOTORS; i++) {
-        for (int j = 0; j < dshot::DSHOT_COMPARE_BUF_SIZE; j++) {
-            dshotCompareBuf[i][j] = 0;
+    // I-12: Derive timing from SystemCoreClock (never hardcode)
+    // F405: APB2 timer clock = SystemCoreClock / 2 (when APB2 prescaler != 1)
+    uint32_t timerClock = SystemCoreClock / 2;
+    dshotTiming = dshot::calculateTiming(timerClock, DSHOT_BITRATE_HZ);
+
+    // R6-3: Prefill compare buffers with ENCODED disarm frame (throttle=0)
+    // Prevents uninitialized buffer -> random CRC-lucky throttle at power-on
+    {
+        uint16_t disarmFrame = dshot::packThrottleFrame(0, false);
+        for (int i = 0; i < NUM_MOTORS; i++) {
+            dshot::encodeToCompareBuffer(disarmFrame, dshotTiming, dshotCompareBuf[i]);
         }
     }
 

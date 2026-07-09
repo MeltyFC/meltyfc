@@ -30,11 +30,8 @@ namespace hal {
 
 static constexpr uint8_t NUM_MOTORS = 4;
 
-// Timer clock: 200MHz (APB2 timer clock on H743 at 400MHz SYSCLK, AHB=200MHz)
-static constexpr uint32_t TIMER_CLOCK_HZ = 200000000;
-
-static const dshot::DshotTimingConfig dshotTiming =
-    dshot::calculateTiming(TIMER_CLOCK_HZ, DSHOT_BITRATE_HZ);
+// DShot300 timing — computed at init from SystemCoreClock (I-12)
+static dshot::DshotTimingConfig dshotTiming;
 
 // ============================================================================
 // DMA buffers — MUST be in D2 SRAM (invariant I-11b)
@@ -53,18 +50,12 @@ static constexpr uint32_t motorChannel[NUM_MOTORS] = {
     TIM_CHANNEL_1, TIM_CHANNEL_2, TIM_CHANNEL_3, TIM_CHANNEL_4
 };
 
-// ============================================================================
-// DMAMUX request IDs for TIM1 (from H743 reference manual Table 137)
-// These are programmable — the NICE H7 difference
-// ============================================================================
-static constexpr uint32_t DMAMUX_TIM1_CH1 = 42;
-static constexpr uint32_t DMAMUX_TIM1_CH2 = 43;
-static constexpr uint32_t DMAMUX_TIM1_CH3 = 44;
-static constexpr uint32_t DMAMUX_TIM1_CH4 = 45;
-static constexpr uint32_t DMAMUX_TIM1_UP  = 46;
-
+// DMAMUX request IDs — use HAL-defined macros (transcription-proof)
 static constexpr uint32_t dmamuxRequest[NUM_MOTORS] = {
-    DMAMUX_TIM1_CH1, DMAMUX_TIM1_CH2, DMAMUX_TIM1_CH3, DMAMUX_TIM1_CH4
+    DMA_REQUEST_TIM1_CH1,  // 11
+    DMA_REQUEST_TIM1_CH2,  // 12
+    DMA_REQUEST_TIM1_CH3,  // 13
+    DMA_REQUEST_TIM1_CH4,  // 14
 };
 
 // ============================================================================
@@ -83,9 +74,16 @@ void dshotInit() {
         DMA_BUFFER_ASSERT(telemCaptureBuf[i]);
     }
 
-    for (int i = 0; i < NUM_MOTORS; i++) {
-        for (int j = 0; j < dshot::DSHOT_COMPARE_BUF_SIZE; j++) {
-            dshotCompareBuf[i][j] = 0;
+    // I-12: Derive timing from SystemCoreClock
+    // H7: APB2 timer clock = AHB clock = SystemCoreClock / 2 (at SYSCLK=400, AHB=200)
+    uint32_t timerClock = SystemCoreClock / 2;
+    dshotTiming = dshot::calculateTiming(timerClock, DSHOT_BITRATE_HZ);
+
+    // R6-3: Prefill with encoded disarm frame (prevents random throttle at power-on)
+    {
+        uint16_t disarmFrame = dshot::packThrottleFrame(0, false);
+        for (int i = 0; i < NUM_MOTORS; i++) {
+            dshot::encodeToCompareBuffer(disarmFrame, dshotTiming, dshotCompareBuf[i]);
         }
     }
 

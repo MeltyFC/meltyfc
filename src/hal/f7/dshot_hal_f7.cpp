@@ -30,13 +30,8 @@ namespace hal {
 
 static constexpr uint8_t NUM_MOTORS = 4;
 
-// Timer clock: 216MHz (F722/F745)
-// APB2 timer clock = 216MHz when APB2 prescaler != 1
-// Safe assumption: use 108MHz (half SYSCLK) if uncertain — measure on hardware
-static constexpr uint32_t TIMER_CLOCK_HZ = 108000000;
-
-static const dshot::DshotTimingConfig dshotTiming =
-    dshot::calculateTiming(TIMER_CLOCK_HZ, DSHOT_BITRATE_HZ);
+// DShot300 timing — computed at init from SystemCoreClock (I-12)
+static dshot::DshotTimingConfig dshotTiming;
 
 // ============================================================================
 // DMA buffers — MUST be in DTCM (invariant I-11a)
@@ -65,9 +60,17 @@ void dshotInit() {
         DMA_BUFFER_ASSERT(telemCaptureBuf[i]);
     }
 
-    for (int i = 0; i < NUM_MOTORS; i++) {
-        for (int j = 0; j < dshot::DSHOT_COMPARE_BUF_SIZE; j++) {
-            dshotCompareBuf[i][j] = 0;
+    // I-12: Derive timing from SystemCoreClock
+    // F7: APB2 timer clock = SystemCoreClock when APB2 prescaler != 1 (×2 multiplier)
+    // With APB2 = HCLK/2, timer clock = APB2 * 2 = HCLK = SystemCoreClock
+    uint32_t timerClock = SystemCoreClock;
+    dshotTiming = dshot::calculateTiming(timerClock, DSHOT_BITRATE_HZ);
+
+    // R6-3: Prefill with encoded disarm frame (prevents random throttle at power-on)
+    {
+        uint16_t disarmFrame = dshot::packThrottleFrame(0, false);
+        for (int i = 0; i < NUM_MOTORS; i++) {
+            dshot::encodeToCompareBuffer(disarmFrame, dshotTiming, dshotCompareBuf[i]);
         }
     }
 
