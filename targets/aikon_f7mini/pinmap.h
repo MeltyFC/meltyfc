@@ -114,3 +114,39 @@
 #define NVIC_PRIO_UART 7      // CRSF
 #define NVIC_PRIO_USB 10      // CDC serial — low, never preempts DMA
 #define NVIC_PRIO_SYSTICK 15  // Lowest — timing only
+
+// ============================================================================
+// A1: Motor Route Table — full timer/channel/AF/DMA tuple per motor
+// Derived from BF timer_pin_map + RM0431 DMA stream mapping
+// ============================================================================
+#define MOTOR1_CHANNEL TIM_CHANNEL_1
+#define MOTOR2_CHANNEL TIM_CHANNEL_2
+#define MOTOR3_CHANNEL TIM_CHANNEL_3
+#define MOTOR4_CHANNEL TIM_CHANNEL_4
+#define MOTOR1_AF 3   // AF3 = TIM8
+#define MOTOR2_AF 3
+#define MOTOR3_AF 3
+#define MOTOR4_AF 3
+#define MOTOR1_GPIO_PORT GPIOC
+#define MOTOR2_GPIO_PORT GPIOC
+#define MOTOR3_GPIO_PORT GPIOC
+#define MOTOR4_GPIO_PORT GPIOC
+#define MOTOR1_GPIO_PIN GPIO_PIN_6
+#define MOTOR2_GPIO_PIN GPIO_PIN_7
+#define MOTOR3_GPIO_PIN GPIO_PIN_8
+#define MOTOR4_GPIO_PIN GPIO_PIN_9
+// DMA: TIM8 CH1=DMA2_S2_CH7, CH2=DMA2_S3_CH7, CH3=DMA2_S4_CH7, CH4=DMA2_S7_CH7
+#define MOTOR1_DMA_STREAM DMA2_Stream2
+#define MOTOR2_DMA_STREAM DMA2_Stream3
+#define MOTOR3_DMA_STREAM DMA2_Stream4
+#define MOTOR4_DMA_STREAM DMA2_Stream7
+#define MOTOR1_DMA_CHANNEL DMA_CHANNEL_7
+#define MOTOR2_DMA_CHANNEL DMA_CHANNEL_7
+#define MOTOR3_DMA_CHANNEL DMA_CHANNEL_7
+#define MOTOR4_DMA_CHANNEL DMA_CHANNEL_7
+
+// LED route
+#define LED_STRIP_CHANNEL TIM_CHANNEL_1
+#define LED_STRIP_AF 1   // AF1 = TIM2
+#define LED_STRIP_GPIO_PORT GPIOA
+#define LED_STRIP_GPIO_PIN GPIO_PIN_15

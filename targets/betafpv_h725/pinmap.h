@@ -90,3 +90,32 @@
 #define NVIC_PRIO_UART 7
 #define NVIC_PRIO_USB 10
 #define NVIC_PRIO_SYSTICK 15
+
+// ============================================================================
+// A1: Motor Route Table (H7 DMAMUX)
+// ============================================================================
+#define MOTOR1_CHANNEL TIM_CHANNEL_1
+#define MOTOR2_CHANNEL TIM_CHANNEL_2
+#define MOTOR3_CHANNEL TIM_CHANNEL_3
+#define MOTOR4_CHANNEL TIM_CHANNEL_4
+#define MOTOR1_AF 3   // AF3 = TIM8
+#define MOTOR2_AF 3
+#define MOTOR3_AF 2   // AF2 = TIM3
+#define MOTOR4_AF 2
+#define MOTOR1_GPIO_PORT GPIOC
+#define MOTOR2_GPIO_PORT GPIOC
+#define MOTOR3_GPIO_PORT GPIOB
+#define MOTOR4_GPIO_PORT GPIOB
+#define MOTOR1_GPIO_PIN GPIO_PIN_6
+#define MOTOR2_GPIO_PIN GPIO_PIN_7
+#define MOTOR3_GPIO_PIN GPIO_PIN_0
+#define MOTOR4_GPIO_PIN GPIO_PIN_1
+#define MOTOR1_DMAMUX_REQUEST DMA_REQUEST_TIM8_CH1
+#define MOTOR2_DMAMUX_REQUEST DMA_REQUEST_TIM8_CH2
+#define MOTOR3_DMAMUX_REQUEST DMA_REQUEST_TIM3_CH3
+#define MOTOR4_DMAMUX_REQUEST DMA_REQUEST_TIM3_CH4
+
+#define LED_STRIP_CHANNEL TIM_CHANNEL_3
+#define LED_STRIP_AF 1
+#define LED_STRIP_GPIO_PORT GPIOB
+#define LED_STRIP_GPIO_PIN GPIO_PIN_10

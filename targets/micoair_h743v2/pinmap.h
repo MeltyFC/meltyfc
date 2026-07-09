@@ -144,3 +144,32 @@
 #define NVIC_PRIO_UART 7      // CRSF
 #define NVIC_PRIO_USB 10      // CDC serial — low, never preempts DMA
 #define NVIC_PRIO_SYSTICK 15  // Lowest — timing only
+
+// ============================================================================
+// A1: Motor Route Table (H7 — uses DMAMUX request IDs, not fixed streams)
+// ============================================================================
+#define MOTOR1_CHANNEL TIM_CHANNEL_4
+#define MOTOR2_CHANNEL TIM_CHANNEL_3
+#define MOTOR3_CHANNEL TIM_CHANNEL_2
+#define MOTOR4_CHANNEL TIM_CHANNEL_1
+#define MOTOR1_AF 1   // AF1 = TIM1
+#define MOTOR2_AF 1
+#define MOTOR3_AF 1
+#define MOTOR4_AF 1
+#define MOTOR1_GPIO_PORT GPIOE
+#define MOTOR2_GPIO_PORT GPIOE
+#define MOTOR3_GPIO_PORT GPIOE
+#define MOTOR4_GPIO_PORT GPIOE
+#define MOTOR1_GPIO_PIN GPIO_PIN_14
+#define MOTOR2_GPIO_PIN GPIO_PIN_13
+#define MOTOR3_GPIO_PIN GPIO_PIN_11
+#define MOTOR4_GPIO_PIN GPIO_PIN_9
+#define MOTOR1_DMAMUX_REQUEST DMA_REQUEST_TIM1_CH4
+#define MOTOR2_DMAMUX_REQUEST DMA_REQUEST_TIM1_CH3
+#define MOTOR3_DMAMUX_REQUEST DMA_REQUEST_TIM1_CH2
+#define MOTOR4_DMAMUX_REQUEST DMA_REQUEST_TIM1_CH1
+
+#define LED_STRIP_CHANNEL TIM_CHANNEL_3
+#define LED_STRIP_AF 2
+#define LED_STRIP_GPIO_PORT GPIOD
+#define LED_STRIP_GPIO_PIN GPIO_PIN_14

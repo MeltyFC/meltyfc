@@ -85,3 +85,36 @@
 #define NVIC_PRIO_UART 7
 #define NVIC_PRIO_USB 10
 #define NVIC_PRIO_SYSTICK 15
+
+// ============================================================================
+// A1: Motor Route Table
+// ============================================================================
+#define MOTOR1_CHANNEL TIM_CHANNEL_1
+#define MOTOR2_CHANNEL TIM_CHANNEL_2
+#define MOTOR3_CHANNEL TIM_CHANNEL_1
+#define MOTOR4_CHANNEL TIM_CHANNEL_2
+#define MOTOR1_AF 2   // AF2 = TIM3
+#define MOTOR2_AF 2
+#define MOTOR3_AF 2   // AF2 = TIM4
+#define MOTOR4_AF 2
+#define MOTOR1_GPIO_PORT GPIOB
+#define MOTOR2_GPIO_PORT GPIOB
+#define MOTOR3_GPIO_PORT GPIOB
+#define MOTOR4_GPIO_PORT GPIOB
+#define MOTOR1_GPIO_PIN GPIO_PIN_4
+#define MOTOR2_GPIO_PIN GPIO_PIN_5
+#define MOTOR3_GPIO_PIN GPIO_PIN_6
+#define MOTOR4_GPIO_PIN GPIO_PIN_7
+#define MOTOR1_DMA_STREAM DMA1_Stream4
+#define MOTOR2_DMA_STREAM DMA1_Stream5
+#define MOTOR3_DMA_STREAM DMA1_Stream0
+#define MOTOR4_DMA_STREAM DMA1_Stream3
+#define MOTOR1_DMA_CHANNEL DMA_CHANNEL_5
+#define MOTOR2_DMA_CHANNEL DMA_CHANNEL_5
+#define MOTOR3_DMA_CHANNEL DMA_CHANNEL_2
+#define MOTOR4_DMA_CHANNEL DMA_CHANNEL_2
+
+#define LED_STRIP_CHANNEL TIM_CHANNEL_1
+#define LED_STRIP_AF 1
+#define LED_STRIP_GPIO_PORT GPIOA
+#define LED_STRIP_GPIO_PIN GPIO_PIN_8

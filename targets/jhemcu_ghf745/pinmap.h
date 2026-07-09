@@ -118,3 +118,36 @@
 #define NVIC_PRIO_UART 7      // CRSF
 #define NVIC_PRIO_USB 10      // CDC serial — low, never preempts DMA
 #define NVIC_PRIO_SYSTICK 15  // Lowest — timing only
+
+// ============================================================================
+// A1: Motor Route Table
+// ============================================================================
+#define MOTOR1_CHANNEL TIM_CHANNEL_3
+#define MOTOR2_CHANNEL TIM_CHANNEL_4
+#define MOTOR3_CHANNEL TIM_CHANNEL_1
+#define MOTOR4_CHANNEL TIM_CHANNEL_2
+#define MOTOR1_AF 2   // AF2 = TIM3
+#define MOTOR2_AF 2
+#define MOTOR3_AF 1   // AF1 = TIM1
+#define MOTOR4_AF 1
+#define MOTOR1_GPIO_PORT GPIOB
+#define MOTOR2_GPIO_PORT GPIOB
+#define MOTOR3_GPIO_PORT GPIOE
+#define MOTOR4_GPIO_PORT GPIOE
+#define MOTOR1_GPIO_PIN GPIO_PIN_0
+#define MOTOR2_GPIO_PIN GPIO_PIN_1
+#define MOTOR3_GPIO_PIN GPIO_PIN_9
+#define MOTOR4_GPIO_PIN GPIO_PIN_11
+#define MOTOR1_DMA_STREAM DMA1_Stream7
+#define MOTOR2_DMA_STREAM DMA1_Stream2
+#define MOTOR3_DMA_STREAM DMA2_Stream1
+#define MOTOR4_DMA_STREAM DMA2_Stream2
+#define MOTOR1_DMA_CHANNEL DMA_CHANNEL_5
+#define MOTOR2_DMA_CHANNEL DMA_CHANNEL_5
+#define MOTOR3_DMA_CHANNEL DMA_CHANNEL_6
+#define MOTOR4_DMA_CHANNEL DMA_CHANNEL_6
+
+#define LED_STRIP_CHANNEL TIM_CHANNEL_1
+#define LED_STRIP_AF 2
+#define LED_STRIP_GPIO_PORT GPIOD
+#define LED_STRIP_GPIO_PIN GPIO_PIN_12
