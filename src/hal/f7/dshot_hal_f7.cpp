@@ -61,10 +61,16 @@ void dshotInit() {
         DMA_BUFFER_ASSERT(telemCaptureBuf[i]);
     }
 
-    // I-12: Derive timing from SystemCoreClock
-    // F7: APB2 timer clock = SystemCoreClock when APB2 prescaler != 1 (×2 multiplier)
-    // With APB2 = HCLK/2, timer clock = APB2 * 2 = HCLK = SystemCoreClock
-    uint32_t timerClock = SystemCoreClock;
+    // I-12 + I-16: F7 APB2 timer clock = SystemCoreClock (×2 multiplier from APB2/2)
+    uint32_t timerClock = SystemCoreClock;  // 216MHz on F722/F745
+
+#ifdef EXPECTED_TIMER_CLOCK_HZ
+    if (timerClock < (EXPECTED_TIMER_CLOCK_HZ * 95 / 100) ||
+        timerClock > (EXPECTED_TIMER_CLOCK_HZ * 105 / 100)) {
+        while (1) {} // I-16: Timer clock mismatch
+    }
+#endif
+
     dshotTiming = dshot::calculateTiming(timerClock, DSHOT_BITRATE_HZ);
 
     // R6-3: Prefill with encoded disarm frame (prevents random throttle at power-on)

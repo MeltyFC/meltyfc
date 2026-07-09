@@ -44,3 +44,4 @@ void SystemClock_Config(void);
 // B1: H7_PWR_SUPPLY is defined in pinmap.h (REQUIRED, no default)
 // B2: Clock at 520MHz VOS1 (conservative). 550MHz VOS0 = later.
 // B3: D2 SRAM = 32KB (not 128KB like H743!)
+#define EXPECTED_TIMER_CLOCK_HZ 260000000U  // H725: APB2 timer = AHB = SYSCLK/2

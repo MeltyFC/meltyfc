@@ -13,7 +13,8 @@ float erpmToMechRpm(uint32_t erpm, uint8_t motorPoles) {
 }
 
 float wheelImpliedOmega(float mechRpm, const SlipConfig& cfg) {
-    if (cfg.driveRatio <= 0.0f || cfg.wheelMountRadius <= 0.0f) {
+    // I-15: negated-positive form catches NaN
+    if (!(cfg.driveRatio > 0.0f) || !(cfg.wheelMountRadius > 0.0f)) {
         return 0.0f;
     }
     // wheel_rpm = motor_rpm / drive_ratio

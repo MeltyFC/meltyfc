@@ -115,9 +115,23 @@ void dshotInit() {
         DMA_BUFFER_ASSERT(telemCaptureBuf[i]);
     }
 
-    // I-12: Derive timing from SystemCoreClock (never hardcode)
-    // F405: APB2 timer clock = SystemCoreClock / 2 (when APB2 prescaler != 1)
-    uint32_t timerClock = SystemCoreClock / 2;
+    // I-12 + I-16: Derive timing from SystemCoreClock (never hardcode)
+    // F-02 FIX: F405 APB2 timer clock = SystemCoreClock (NOT /2!)
+    // When APB2 prescaler != 1 (it's /2 on F405), the silicon applies a ×2
+    // kernel multiplier to timer clocks: APB2=84MHz × 2 = 168MHz = SystemCoreClock.
+    // The old /2 produced 84MHz timing on a 168MHz timer → DShot300 transmitted
+    // at DShot600 rate → ESC auto-detects wrong rate → bidir telemetry silently broken.
+    uint32_t timerClock = SystemCoreClock;  // 168MHz on F405, 100MHz on F411
+
+    // I-16: Assert timer clock matches target expectation
+#ifdef EXPECTED_TIMER_CLOCK_HZ
+    // Tolerance: 5% (same as I-12 system clock assert)
+    if (timerClock < (EXPECTED_TIMER_CLOCK_HZ * 95 / 100) ||
+        timerClock > (EXPECTED_TIMER_CLOCK_HZ * 105 / 100)) {
+        while (1) {} // Timer clock mismatch — hang for IWDG
+    }
+#endif
+
     dshotTiming = dshot::calculateTiming(timerClock, DSHOT_BITRATE_HZ);
 
     // R6-3: Prefill compare buffers with ENCODED disarm frame (throttle=0)

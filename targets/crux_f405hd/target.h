@@ -36,3 +36,4 @@ void SystemClock_Config(void);
 #define DSHOT_BITRATE_HZ 300000U // DShot300 = 300 kbit/s
 #define DSHOT_BIDIR 1            // Bidirectional for eRPM telemetry
 #define MELTYFC_TIER MELTYFC_TIER_FULL
+#define EXPECTED_TIMER_CLOCK_HZ 168000000U  // F405: APB2 timer = SYSCLK (×2 multiplier)

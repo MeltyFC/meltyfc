@@ -13,14 +13,13 @@ static inline float safeFloat(float v, float fallback = 0.0f) {
 }
 
 float computeOmegaDifferential(float aOuter, float aInner, float drEff) {
-    // DI-17: Reject NaN inputs
+    // F-01 + DI-17 + I-15: Reject NaN/Inf inputs — fail closed
+    // The negated-positive form catches NaN (all NaN comparisons are false)
     aOuter = safeFloat(aOuter);
     aInner = safeFloat(aInner);
-    // ω = sqrt(max(0, (a_outer - a_inner)) / dr_eff)
-    // Acceleration in m/s² (input in g, convert: a_g * 9.81)
-    // dr_eff in meters
     const float diff = aOuter - aInner;
-    if (diff <= 0.0f || drEff <= 0.0f) {
+    // !(x > 0) catches: x <= 0, x == NaN, x == -Inf
+    if (!(diff > 0.0f) || !(drEff > 0.0f)) {
         return 0.0f;
     }
     // a is in g, convert to m/s²: diff * 9.80665
@@ -125,7 +124,7 @@ float computeTrimRate(float stickVal, const TrimConfig& cfg) {
 
 float computeRpmHold(float currentRpm, float targetRpm, float baseThrottle,
                      const RpmHoldConfig& cfg, RpmHoldState* state) {
-    if (!cfg.enabled || targetRpm <= 0.0f) {
+    if (!cfg.enabled || !(targetRpm > 0.0f)) {  // I-15: NaN-safe
         if (state)
             state->wasEnabled = false;
         return baseThrottle;

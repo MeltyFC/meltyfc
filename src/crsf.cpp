@@ -142,8 +142,12 @@ bool crsfDecodeLinkStats(const uint8_t* frame, uint8_t frameLen, CrsfLinkStats& 
 // Channel conversions
 // ============================================================================
 float crsfChannelToFloat(uint16_t raw) {
-    return (static_cast<float>(raw) - static_cast<float>(CRSF_CHANNEL_MID)) /
-           (static_cast<float>(CRSF_CHANNEL_MAX - CRSF_CHANNEL_MIN) / 2.0f);
+    // F-05: Clamp to [-1, +1] — CRC-valid frames can have out-of-range channel values
+    float val = (static_cast<float>(raw) - static_cast<float>(CRSF_CHANNEL_MID)) /
+                (static_cast<float>(CRSF_CHANNEL_MAX - CRSF_CHANNEL_MIN) / 2.0f);
+    if (val < -1.0f) val = -1.0f;
+    if (val > 1.0f) val = 1.0f;
+    return val;
 }
 
 float crsfChannelToThrottle(uint16_t raw) {

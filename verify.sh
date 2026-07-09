@@ -165,7 +165,9 @@ for TARGET in "${ALL_TARGETS[@]}"; do
                 ;;
         esac
     else
-        warn "${TARGET}: No map file generated — cannot verify DMA section placement"
+        # I-18: Missing map file = gate failure, not skip.
+        # The -Map flag is in common build_flags — absence means build system changed.
+        fail "${TARGET}: No map file generated — cannot verify DMA section placement (I-18)"
     fi
 
     TARGETS_PASSED=$((TARGETS_PASSED + 1))
@@ -180,7 +182,14 @@ pass "All ${TARGETS_PASSED}/${TARGETS_TOTAL} targets built successfully"
 # ----------------------------------------------------------------
 echo ""
 echo "--- Step 3: Static analysis ---"
-CPPCHECK_OUTPUT=$(pio check --skip-packages -e crux_f405hd 2>&1 || true)
+# I-18: Tool failure = gate failure (never swallow with || true)
+CPPCHECK_OUTPUT=$(pio check --skip-packages -e crux_f405hd 2>&1)
+CPPCHECK_EXIT=$?
+if [ $CPPCHECK_EXIT -ne 0 ] && [ $CPPCHECK_EXIT -ne 1 ]; then
+    # Exit 1 = warnings only (acceptable). Other exits = tool crashed.
+    echo "$CPPCHECK_OUTPUT" | tail -10
+    fail "cppcheck tool CRASHED (exit $CPPCHECK_EXIT) — I-18: gate cannot pass on failed tool"
+fi
 CPPCHECK_ERRORS=$(echo "$CPPCHECK_OUTPUT" | grep -c "\[error\]" || true)
 if [ "$CPPCHECK_ERRORS" -gt 0 ]; then
     echo "$CPPCHECK_OUTPUT" | grep "\[error\]"

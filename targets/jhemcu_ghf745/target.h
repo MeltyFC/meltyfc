@@ -45,3 +45,4 @@ void SystemClock_Config(void);
 // (never cached, DMA-accessible via AHBS) — no cache-maintenance needed.
 // See ASSERT_IN_DTCM() in pinmap.h (invariant I-11a).
 #define MELTYFC_TIER MELTYFC_TIER_FULL
+#define EXPECTED_TIMER_CLOCK_HZ 216000000U  // F745: APB2 timer = SYSCLK (×2 multiplier)

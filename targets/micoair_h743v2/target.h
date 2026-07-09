@@ -59,3 +59,4 @@ void SystemClock_Config(void);
 // stream+channel mapping). DShot/WS2812 drivers gain a DMAMUX-assignment
 // layer in the h7 family dir. This is the NICE difference.
 #define MELTYFC_TIER MELTYFC_TIER_FULL
+#define EXPECTED_TIMER_CLOCK_HZ 200000000U  // H743: APB2 timer = AHB = SYSCLK/2
