@@ -18,17 +18,19 @@ RAM_FAIL_PCT=85
 # Per-target flash/RAM budgets (bytes)
 declare -A TARGET_FLASH=(
     [crux_f405hd]=1048576      # 1MB
+    [betafpv_f411]=524288      # 512KB
     [aikon_f7mini]=524288      # 512KB
     [jhemcu_ghf745]=1048576    # 1MB
     [micoair_h743v2]=2097152   # 2MB
 )
 declare -A TARGET_RAM=(
     [crux_f405hd]=196608       # 192KB (usable SRAM, excluding CCM)
+    [betafpv_f411]=131072      # 128KB (no CCM on F411)
     [aikon_f7mini]=262144      # 256KB
     [jhemcu_ghf745]=327680     # 320KB
     [micoair_h743v2]=1048576   # ~1MB (AXI+D2+D3, excludes DTCM/ITCM)
 )
-ALL_TARGETS=(crux_f405hd aikon_f7mini jhemcu_ghf745 micoair_h743v2)
+ALL_TARGETS=(crux_f405hd betafpv_f411 aikon_f7mini jhemcu_ghf745 micoair_h743v2)
 
 pass() { echo -e "${GREEN}PASS${NC}: $1"; }
 warn() { echo -e "${YELLOW}WARN${NC}: $1"; }
@@ -272,7 +274,16 @@ for TARGET_DIR in targets/*/; do
     fi
 done
 
-pass "Rocket invariants (I-1, I-2) + pinmap warnings"
+# Safety-tier gate: no MELTYFC_TIER/MELTYFC_HAS inside safety-critical code
+TIER_IN_SAFETY=$(grep -n 'MELTYFC_TIER\|MELTYFC_HAS' \
+    src/safety.cpp src/safety.hpp 2>/dev/null || true)
+if [ -n "$TIER_IN_SAFETY" ]; then
+    echo "TIER GATE VIOLATION — feature tier guard found in safety code:"
+    echo "$TIER_IN_SAFETY"
+    fail "Safety code must NEVER be tier-gated"
+fi
+
+pass "Rocket invariants (I-1, I-2) + pinmap warnings + safety-tier gate"
 
 # ----------------------------------------------------------------
 # 7. Symbol-floor gate (core wiring check)

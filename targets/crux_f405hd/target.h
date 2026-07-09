@@ -4,6 +4,7 @@
 #pragma once
 
 #include "pinmap.h"
+#include "feature_tiers.h"
 
 // Clock configuration — provided by target, called from main
 #ifdef __cplusplus
@@ -34,3 +35,4 @@ void SystemClock_Config(void);
 // DShot config — Finding 2: bitrate MUST be in Hz, not mode number
 #define DSHOT_BITRATE_HZ 300000U // DShot300 = 300 kbit/s
 #define DSHOT_BIDIR 1            // Bidirectional for eRPM telemetry
+#define MELTYFC_TIER MELTYFC_TIER_FULL

@@ -130,14 +130,24 @@ void dshotInit() {
     }
 
     // Enable timer and DMA clocks
-    // Enable both TIM1 and TIM8 clocks — unused one costs nothing
+    __HAL_RCC_DMA1_CLK_ENABLE();
     __HAL_RCC_DMA2_CLK_ENABLE();
     __HAL_RCC_TIM1_CLK_ENABLE();
-    __HAL_RCC_TIM8_CLK_ENABLE();
+    __HAL_RCC_TIM3_CLK_ENABLE();
+    __HAL_RCC_TIM4_CLK_ENABLE();
+#ifdef TIM8
+    __HAL_RCC_TIM8_CLK_ENABLE();  // F411 doesn't have TIM8
+#endif
 
-
-    // Configure timer for DShot output
+    // Configure timer — use MOTOR_TIMER if single timer, else MOTOR1_TIMER
+#if defined(MOTOR_TIMER)
     hMotorTimer.Instance = MOTOR_TIMER;
+#elif defined(MOTOR1_TIMER)
+    hMotorTimer.Instance = MOTOR1_TIMER;
+    // NOTE: split-timer boards (TIM3+TIM4) need a second handle — deferred to P2
+#else
+    #error "No motor timer defined in pinmap.h"
+#endif
     hMotorTimer.Init.Prescaler = 0;  // No prescaler — full timer clock
     hMotorTimer.Init.CounterMode = TIM_COUNTERMODE_UP;
     hMotorTimer.Init.Period = dshotTiming.bitPeriodTicks - 1;
