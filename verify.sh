@@ -62,6 +62,19 @@ fi
 pass "Native unit tests"
 
 # ----------------------------------------------------------------
+# 1b. P-03: -O2 canary build (catches UB and volatile-misuse that -Os hides)
+# ----------------------------------------------------------------
+echo ""
+echo "--- Step 1b: -O2 canary build ---"
+O2_OUTPUT=$(PLATFORMIO_BUILD_FLAGS="-O2" pio run -e crux_f405hd 2>&1)
+O2_EXIT=$?
+if [ $O2_EXIT -ne 0 ]; then
+    echo "$O2_OUTPUT" | grep "error:" | head -5
+    warn "P-03: -O2 canary build failed — review warnings (may reveal UB)"
+fi
+pass "-O2 canary build (crux_f405hd)"
+
+# ----------------------------------------------------------------
 # 2. Multi-target build + resource budgets
 # ----------------------------------------------------------------
 echo ""

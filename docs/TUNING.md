@@ -133,3 +133,32 @@ Auto-detection works by measuring battery voltage at boot and dividing by 4.2V:
 - `LED_ARC_WIDTH`: beacon arc width in degrees (wider = easier to see, less precise)
 - Beacon colors configurable for upright (default green) and inverted (default orange)
 - All state colors configurable — see `list` for the full set
+
+## Flash Endurance Arithmetic (L11)
+
+### SPI NOR (W25Q-series) Config Storage
+- Endurance: 100,000 erase cycles per sector (4KB sectors)
+- Config save frequency: ~20/day (generous — most sessions are <5 saves)
+- A/B rotation: each sector sees half the writes = ~10 erases/day
+- Lifetime: 100,000 / 10 = 10,000 days = **~27 years**
+- **Verdict: non-issue.**
+
+### SPI NOR Blackbox Ring
+- Typical flash: 8MB (W25Q64) with 4KB sectors = 2,048 sectors
+- Record size: 28 bytes. Session: ~50KB = ~13 sectors
+- Full ring rotation: 2,048 / 13 = ~158 sessions per full wrap
+- Each sector sees one erase per 158 sessions
+- At 3 sessions/day: one erase per ~53 days = ~670 erases/year
+- Lifetime: 100,000 / 670 = **~150 years**
+- **Verdict: non-issue.**
+
+### SDMMC / TF Card (H743)
+- SD cards have their own wear leveling. Non-issue for raw-block ring writes.
+
+### SPI Bus Clock
+- W25Q max clock: 104MHz (standard read), 80MHz (fast read)
+- Our SPI prescaler at integration: verify any /2^n of our clock stays under 104MHz
+- F405 @ 84MHz APB: SPI /2 = 42MHz ✓
+- F722 @ 108MHz APB: SPI /2 = 54MHz ✓  
+- H743 @ 100MHz APB: SPI /2 = 50MHz ✓
+- **All within spec without prescaler adjustment.**
