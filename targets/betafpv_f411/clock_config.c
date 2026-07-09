@@ -25,7 +25,7 @@ void SystemClock_Config(void) {
     osc.PLL.PLLN = 192;    // VCO = 2*192 = 384MHz (RM0383: 100-432MHz) ✓
     osc.PLL.PLLP = RCC_PLLP_DIV4;  // SYSCLK = 384/4 = 96MHz ✓
     osc.PLL.PLLQ = 8;      // USB = 384/8 = 48.000MHz exact ✓
-    HAL_RCC_OscConfig(&osc);
+    if (HAL_RCC_OscConfig(&osc) != HAL_OK) return;
 
     RCC_ClkInitTypeDef clk = {};
     clk.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK |
@@ -35,7 +35,7 @@ void SystemClock_Config(void) {
     clk.APB1CLKDivider = RCC_HCLK_DIV2;     // 48MHz (RM0383: max 50MHz) ✓
     clk.APB2CLKDivider = RCC_HCLK_DIV1;     // 96MHz (RM0383: max 100MHz) ✓
     // Flash: 3 wait states (>90MHz at 3.3V, RM0383 Table 6) ✓
-    HAL_RCC_ClockConfig(&clk, FLASH_LATENCY_3);
+    if (HAL_RCC_ClockConfig(&clk, FLASH_LATENCY_3) != HAL_OK) return;
 
     __HAL_FLASH_PREFETCH_BUFFER_ENABLE();
 }

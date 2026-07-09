@@ -36,15 +36,22 @@ static constexpr I2cRecoveryConfig I2C_RECOVERY_DEFAULT = {
 //
 // Implementation:
 //   1. Configure SCL/SDA as GPIO outputs
-//   2. Clock SCL 9 times (clears any latched slave)
-//   3. Generate STOP condition (SDA low→high while SCL high)
-//   4. Reconfigure pins for I2C alternate function
-//   5. Wire.begin() with timeout
-//   6. Probe expected addresses (H3LIS 0x18, 0x19)
-//   7. If probe fails, retry from step 1
+//   2. Clock SCL 9 times (clears any latched SLAVE — the common case)
+//   3. Generate STOP condition (SDA low->high while SCL high)
+//   4. E-01: Force-reset I2C MASTER peripheral via RCC
+//      __HAL_RCC_I2Cx_FORCE_RESET() -> short delay -> RELEASE_RESET()
+//      This clears the F4 analog-filter BUSY lockup erratum (ES0182)
+//      where the MASTER wedges and re-init alone doesn't clear it.
+//      Three lines, ST's own documented workaround.
+//   5. Reconfigure pins for I2C alternate function
+//   6. Wire.begin() / HAL_I2C_Init() with timeout
+//   7. Probe expected addresses (H3LIS 0x18, 0x19)
+//   8. If probe fails, retry from step 1
 //
-// The GPIO bit-bang (steps 1-4) is target-specific — uses pins from pinmap.h.
-// Steps 5-7 use Arduino Wire (portable across families).
+// With both halves (slave-side SCL + master-side RCC reset), the module
+// handles the COMPLETE wedge set. The GPIO bit-bang (steps 1-3) is
+// target-specific. The RCC reset (step 4) is family-portable.
+// Steps 6-8 use HAL I2C (stm32cube framework).
 
 bool i2cRecoverAndInit(const I2cRecoveryConfig& cfg = I2C_RECOVERY_DEFAULT);
 

@@ -23,7 +23,7 @@ void SystemClock_Config(void) {
     osc.PLL.PLLN = 336;
     osc.PLL.PLLP = RCC_PLLP_DIV2;  // 168MHz
     osc.PLL.PLLQ = 7;               // 48MHz for USB
-    HAL_RCC_OscConfig(&osc);
+    if (HAL_RCC_OscConfig(&osc) != HAL_OK) return;
 
     // Bus clocks
     RCC_ClkInitTypeDef clk = {};
@@ -34,7 +34,7 @@ void SystemClock_Config(void) {
     clk.APB1CLKDivider = RCC_HCLK_DIV4;     // 42MHz (timers = 84MHz)
     clk.APB2CLKDivider = RCC_HCLK_DIV2;     // 84MHz (timers = 168MHz)
     // Flash: 5 wait states at 168MHz/3.3V (RM0090 Table 10)
-    HAL_RCC_ClockConfig(&clk, FLASH_LATENCY_5);
+    if (HAL_RCC_ClockConfig(&clk, FLASH_LATENCY_5) != HAL_OK) return;
 
     __HAL_FLASH_PREFETCH_BUFFER_ENABLE();
 }

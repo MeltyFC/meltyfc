@@ -21,7 +21,7 @@ void SystemClock_Config(void) {
     osc.PLL.PLLN = 432;
     osc.PLL.PLLP = RCC_PLLP_DIV2;
     osc.PLL.PLLQ = 9;
-    HAL_RCC_OscConfig(&osc);
+    if (HAL_RCC_OscConfig(&osc) != HAL_OK) return;
 
     HAL_PWREx_EnableOverDrive();
 
@@ -32,7 +32,7 @@ void SystemClock_Config(void) {
     clk.AHBCLKDivider = RCC_SYSCLK_DIV1;
     clk.APB1CLKDivider = RCC_HCLK_DIV4;
     clk.APB2CLKDivider = RCC_HCLK_DIV2;
-    HAL_RCC_ClockConfig(&clk, FLASH_LATENCY_7);
+    if (HAL_RCC_ClockConfig(&clk, FLASH_LATENCY_7) != HAL_OK) return;
 
     __HAL_FLASH_ART_ENABLE();
     __HAL_FLASH_PREFETCH_BUFFER_ENABLE();

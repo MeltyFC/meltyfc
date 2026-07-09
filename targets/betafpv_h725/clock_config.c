@@ -57,7 +57,7 @@ void SystemClock_Config(void) {
     osc.PLL.PLLRGE = RCC_PLL1VCIRANGE_3;  // 8MHz input (8-16MHz range) ✓
     osc.PLL.PLLVCOSEL = RCC_PLL1VCOWIDE;  // Wide VCO for 800MHz ✓
     osc.PLL.PLLFRACN = 0;
-    HAL_RCC_OscConfig(&osc);
+    if (HAL_RCC_OscConfig(&osc) != HAL_OK) return;
 
     // Bus clocks — same as H743
     RCC_ClkInitTypeDef clk = {};
@@ -72,7 +72,7 @@ void SystemClock_Config(void) {
     clk.APB3CLKDivider = RCC_APB3_DIV2;
     clk.APB4CLKDivider = RCC_APB4_DIV2;
     // Flash: 2WS at VOS1/200MHz AHB (RM0468 Table 16) ✓
-    HAL_RCC_ClockConfig(&clk, FLASH_LATENCY_2);
+    if (HAL_RCC_ClockConfig(&clk, FLASH_LATENCY_2) != HAL_OK) return;
 
     // CS-2: USB kernel clock — HSI48 + CRS (sync-on-SOF for USB tolerance)
     RCC_PeriphCLKInitTypeDef periphClk = {};

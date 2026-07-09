@@ -24,7 +24,7 @@ void SystemClock_Config(void) {
     osc.PLL.PLLN = 432;
     osc.PLL.PLLP = RCC_PLLP_DIV2;  // 216MHz
     osc.PLL.PLLQ = 9;               // 48MHz for USB
-    HAL_RCC_OscConfig(&osc);
+    if (HAL_RCC_OscConfig(&osc) != HAL_OK) return;
 
     // Activate OverDrive for 216MHz
     HAL_PWREx_EnableOverDrive();
@@ -38,7 +38,7 @@ void SystemClock_Config(void) {
     clk.APB1CLKDivider = RCC_HCLK_DIV4;     // 54MHz (timers = 108MHz)
     clk.APB2CLKDivider = RCC_HCLK_DIV2;     // 108MHz (timers = 216MHz)
     // Flash: 7 wait states at 216MHz
-    HAL_RCC_ClockConfig(&clk, FLASH_LATENCY_7);
+    if (HAL_RCC_ClockConfig(&clk, FLASH_LATENCY_7) != HAL_OK) return;
 
     // ART accelerator + prefetch (F7 performance feature)
     __HAL_FLASH_ART_ENABLE();
