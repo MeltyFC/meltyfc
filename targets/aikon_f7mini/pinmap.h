@@ -29,7 +29,10 @@
 #define MOTOR4_PIN PC9  // BF_CONFIG_DERIVED — verify on live dump at arrival
 
 // Motor timer assignments — from BF timer pin mapping (AF index 2 = TIM8 for PC6-PC9)
-#define MOTOR_TIMER TIM8 // BF_CONFIG_DERIVED — verify on live dump at arrival
+#define MOTOR1_TIMER TIM8
+#define MOTOR2_TIMER TIM8
+#define MOTOR3_TIMER TIM8
+#define MOTOR4_TIMER TIM8
 
 // IMU (SPI1) — BF config: GYRO_1_SPI_INSTANCE SPI1
 // Supports MPU6000, BMI270, ICM42688P depending on board revision

@@ -1,16 +1,6 @@
-// MeltyFC — DShot HAL: STM32H7 Family (H743)
-// Timer+DMA driver for DShot300 with bidirectional GCR telemetry.
-//
-// H7 KEY DIFFERENCES (every trap has a ruling):
-//   1. DMA buffers in D2 SRAM (0x30000000) — DTCM is CPU-private! (I-11b)
-//   2. MPU non-cacheable region over .d2_dma — no cache maintenance in hot paths
-//   3. DMAMUX for programmable DMA request routing (nice, not a trap)
-//   4. Timer clock: 200MHz (AHB at 200MHz, APB2 timers get 200MHz)
-//
-// Pin/timer mapping from target pinmap.h (BF-derived + ArduPilot cross-ref):
-//   MicoAir H743 V2: TIM1 CH1-CH4 on PE9/PE11/PE13/PE14, DMAMUX routed
-//
-// [2026-07-09] G2: Driver body written. MPU/PWR not hardware-blocked.
+// MeltyFC — DShot HAL: STM32H7 Family (H743, H725)
+// A1: Table-driven with DMAMUX routing.
+// [2026-07-09] A1 refactor.
 
 #ifndef NATIVE_BUILD
 
@@ -22,118 +12,130 @@
 #include "stm32h7xx_hal.h"
 #include "target.h"
 
-// MPU init from system_h7.cpp — call before any DMA buffer use
 extern void meltyH7MpuInit(void);
 
 namespace melty {
 namespace hal {
 
 static constexpr uint8_t NUM_MOTORS = 4;
-
-// DShot300 timing — computed at init from SystemCoreClock (I-12)
 static dshot::DshotTimingConfig dshotTiming;
-
-// ============================================================================
-// DMA buffers — MUST be in D2 SRAM (invariant I-11b)
-// MPU non-cacheable region eliminates all cache maintenance
-// ============================================================================
 
 static DMA_BUFFER_ATTR uint16_t dshotCompareBuf[NUM_MOTORS][dshot::DSHOT_COMPARE_BUF_SIZE];
 static DMA_BUFFER_ATTR uint32_t telemCaptureBuf[NUM_MOTORS][32];
 static volatile bool telemReady[NUM_MOTORS] = {};
 static volatile bool txInProgress = false;
 
-static TIM_HandleTypeDef hMotorTimer;
+static TIM_HandleTypeDef hMotorTimer[NUM_MOTORS];
 static DMA_HandleTypeDef hDmaMotor[NUM_MOTORS];
 
-static constexpr uint32_t motorChannel[NUM_MOTORS] = {
-    TIM_CHANNEL_1, TIM_CHANNEL_2, TIM_CHANNEL_3, TIM_CHANNEL_4
+struct H7MotorRoute {
+    TIM_TypeDef* timer;
+    uint32_t channel;
+    GPIO_TypeDef* gpioPort;
+    uint16_t gpioPin;
+    uint8_t gpioAF;
+    uint32_t dmamuxRequest;  // H7 DMAMUX — programmable routing
 };
 
-// DMAMUX request IDs — use HAL-defined macros (transcription-proof)
-static constexpr uint32_t dmamuxRequest[NUM_MOTORS] = {
-    DMA_REQUEST_TIM1_CH1,  // 11
-    DMA_REQUEST_TIM1_CH2,  // 12
-    DMA_REQUEST_TIM1_CH3,  // 13
-    DMA_REQUEST_TIM1_CH4,  // 14
+static const H7MotorRoute motorRoutes[NUM_MOTORS] = {
+    { MOTOR1_TIMER, MOTOR1_CHANNEL, MOTOR1_GPIO_PORT, MOTOR1_GPIO_PIN, MOTOR1_AF, MOTOR1_DMAMUX_REQUEST },
+    { MOTOR2_TIMER, MOTOR2_CHANNEL, MOTOR2_GPIO_PORT, MOTOR2_GPIO_PIN, MOTOR2_AF, MOTOR2_DMAMUX_REQUEST },
+    { MOTOR3_TIMER, MOTOR3_CHANNEL, MOTOR3_GPIO_PORT, MOTOR3_GPIO_PIN, MOTOR3_AF, MOTOR3_DMAMUX_REQUEST },
+    { MOTOR4_TIMER, MOTOR4_CHANNEL, MOTOR4_GPIO_PORT, MOTOR4_GPIO_PIN, MOTOR4_AF, MOTOR4_DMAMUX_REQUEST },
 };
 
-// ============================================================================
-// Init
-// ============================================================================
+static TIM_TypeDef* initializedTimers[NUM_MOTORS] = {};
+static uint8_t numInitializedTimers = 0;
+
+static bool timerAlreadyInitialized(TIM_TypeDef* tim) {
+    for (uint8_t i = 0; i < numInitializedTimers; i++)
+        if (initializedTimers[i] == tim) return true;
+    return false;
+}
+
+static void enableTimerClock(TIM_TypeDef* tim) {
+    if (tim == TIM1) __HAL_RCC_TIM1_CLK_ENABLE();
+    else if (tim == TIM3) __HAL_RCC_TIM3_CLK_ENABLE();
+    else if (tim == TIM4) __HAL_RCC_TIM4_CLK_ENABLE();
+    else if (tim == TIM8) __HAL_RCC_TIM8_CLK_ENABLE();
+}
 
 void dshotInit() {
-    // MPU non-cacheable region MUST be configured before any DMA buffer use
-    // This is done once — system_h7.cpp::meltyH7MpuInit() configures MPU region 0
-    // over D2 SRAM as Normal/Non-cacheable/Shareable
     meltyH7MpuInit();
 
-    // Verify DMA buffers are in D2 SRAM (not DTCM!)
     for (int i = 0; i < NUM_MOTORS; i++) {
         DMA_BUFFER_ASSERT(dshotCompareBuf[i]);
         DMA_BUFFER_ASSERT(telemCaptureBuf[i]);
     }
 
-    // I-12 + I-16: H7 APB2 timer clock = AHB = SystemCoreClock / 2
-    uint32_t timerClock = SystemCoreClock / 2;  // 200MHz on H743, 260MHz on H725
-
-#ifdef EXPECTED_TIMER_CLOCK_HZ
-    if (timerClock < (EXPECTED_TIMER_CLOCK_HZ * 95 / 100) ||
-        timerClock > (EXPECTED_TIMER_CLOCK_HZ * 105 / 100)) {
-        while (1) {} // I-16: Timer clock mismatch
-    }
-#endif
-
-    dshotTiming = dshot::calculateTiming(timerClock, DSHOT_BITRATE_HZ);
-
-    // R6-3: Prefill with encoded disarm frame (prevents random throttle at power-on)
-    {
-        uint16_t disarmFrame = dshot::packThrottleFrame(0, false);
-        for (int i = 0; i < NUM_MOTORS; i++) {
-            dshot::encodeToCompareBuffer(disarmFrame, dshotTiming, dshotCompareBuf[i]);
-        }
-    }
-
-    // Enable caches (D-cache safe — MPU region protects DMA buffers)
     SCB_EnableICache();
     SCB_EnableDCache();
 
-    // Enable clocks
+    // I-12 + I-16: H7 timer = SystemCoreClock / 2 (AHB = SYSCLK/2)
+    uint32_t timerClock = SystemCoreClock / 2;
+#ifdef EXPECTED_TIMER_CLOCK_HZ
+    if (timerClock < (EXPECTED_TIMER_CLOCK_HZ * 95 / 100) ||
+        timerClock > (EXPECTED_TIMER_CLOCK_HZ * 105 / 100))
+        while (1) {}
+#endif
+    dshotTiming = dshot::calculateTiming(timerClock, DSHOT_BITRATE_HZ);
+
+    { // R6-3: disarm prefill
+        uint16_t disarmFrame = dshot::packThrottleFrame(0, false);
+        for (int i = 0; i < NUM_MOTORS; i++)
+            dshot::encodeToCompareBuffer(disarmFrame, dshotTiming, dshotCompareBuf[i]);
+    }
+
     __HAL_RCC_DMA1_CLK_ENABLE();
     __HAL_RCC_DMA2_CLK_ENABLE();
 
-    __HAL_RCC_TIM1_CLK_ENABLE();
+    // ES0392 §2.5.4: Clear DMAMUX overrun flags before configuring
+    DMAMUX1_ChannelStatus->CFR = 0xFFFFFFFF;
 
-    // Configure timer
-    hMotorTimer.Instance = MOTOR1_TIMER;
-    hMotorTimer.Init.Prescaler = 0;
-    hMotorTimer.Init.CounterMode = TIM_COUNTERMODE_UP;
-    hMotorTimer.Init.Period = dshotTiming.bitPeriodTicks - 1;
-    hMotorTimer.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-    hMotorTimer.Init.RepetitionCounter = 0;
-    hMotorTimer.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
-    HAL_TIM_PWM_Init(&hMotorTimer);
+    numInitializedTimers = 0;
 
     for (int i = 0; i < NUM_MOTORS; i++) {
+        const H7MotorRoute& r = motorRoutes[i];
+
+        if (!timerAlreadyInitialized(r.timer)) {
+            enableTimerClock(r.timer);
+            hMotorTimer[i].Instance = r.timer;
+            hMotorTimer[i].Init.Prescaler = 0;
+            hMotorTimer[i].Init.CounterMode = TIM_COUNTERMODE_UP;
+            hMotorTimer[i].Init.Period = dshotTiming.bitPeriodTicks - 1;
+            hMotorTimer[i].Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+            hMotorTimer[i].Init.RepetitionCounter = 0;
+            hMotorTimer[i].Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+            HAL_TIM_PWM_Init(&hMotorTimer[i]);
+            if (r.timer == TIM1 || r.timer == TIM8)
+                __HAL_TIM_MOE_ENABLE(&hMotorTimer[i]);
+            initializedTimers[numInitializedTimers++] = r.timer;
+        }
+
         TIM_OC_InitTypeDef oc = {};
         oc.OCMode = TIM_OCMODE_PWM1;
         oc.Pulse = 0;
         oc.OCPolarity = TIM_OCPOLARITY_HIGH;
         oc.OCFastMode = TIM_OCFAST_DISABLE;
-        oc.OCNPolarity = TIM_OCNPOLARITY_HIGH;
-        oc.OCIdleState = TIM_OCIDLESTATE_RESET;
-        HAL_TIM_PWM_ConfigChannel(&hMotorTimer, &oc, motorChannel[i]);
-    }
 
-    // Configure DMA with DMAMUX routing
-    // ES0392 §2.5.4: Clear DMAMUX overrun flags BEFORE configuring channels.
-    // Wrong DMA request can be routed if CxCR write coincides with sync event.
-    // The clear-before-configure pattern prevents the race.
-    DMAMUX1_ChannelStatus->CFR = 0xFFFFFFFF;  // Clear all overrun flags
+        TIM_HandleTypeDef* htim = &hMotorTimer[i];
+        for (int j = 0; j < i; j++)
+            if (hMotorTimer[j].Instance == r.timer) { htim = &hMotorTimer[j]; break; }
+        HAL_TIM_PWM_ConfigChannel(htim, &oc, r.channel);
 
-    for (int i = 0; i < NUM_MOTORS; i++) {
-        hDmaMotor[i].Instance = DMA1_Stream0 + i;  // Use DMA1 streams 0-3
-        hDmaMotor[i].Init.Request = dmamuxRequest[i];
+        GPIO_InitTypeDef gpio = {};
+        gpio.Pin = r.gpioPin;
+        gpio.Mode = GPIO_MODE_AF_PP;
+        gpio.Pull = GPIO_NOPULL;
+        gpio.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+        gpio.Alternate = r.gpioAF;
+        HAL_GPIO_Init(r.gpioPort, &gpio);
+
+        // H7 DMAMUX — programmable request routing
+        // Use DMA1 streams 0-3 for motors (assigned sequentially)
+        DMA_Stream_TypeDef* streams[] = { DMA1_Stream0, DMA1_Stream1, DMA1_Stream2, DMA1_Stream3 };
+        hDmaMotor[i].Instance = streams[i];
+        hDmaMotor[i].Init.Request = r.dmamuxRequest;
         hDmaMotor[i].Init.Direction = DMA_MEMORY_TO_PERIPH;
         hDmaMotor[i].Init.PeriphInc = DMA_PINC_DISABLE;
         hDmaMotor[i].Init.MemInc = DMA_MINC_ENABLE;
@@ -144,83 +146,62 @@ void dshotInit() {
         hDmaMotor[i].Init.FIFOMode = DMA_FIFOMODE_DISABLE;
         HAL_DMA_Init(&hDmaMotor[i]);
 
-        // Link DMA to timer channel
-        __HAL_LINKDMA(&hMotorTimer, hdma[motorChannel[i] >> 2], hDmaMotor[i]);
+        __HAL_LINKDMA(htim, hdma[r.channel >> 2], hDmaMotor[i]);
     }
-
-    __HAL_TIM_MOE_ENABLE(&hMotorTimer);
 }
 
-// ============================================================================
-// Send / Commit
-// ============================================================================
-
 void dshotSend(uint8_t motorIndex, uint16_t frame) {
-    if (motorIndex >= NUM_MOTORS)
-        return;
-    // No cache clean needed — MPU non-cacheable region handles it
+    if (motorIndex >= NUM_MOTORS) return;
     dshot::encodeToCompareBuffer(frame, dshotTiming, dshotCompareBuf[motorIndex]);
 }
 
 void dshotCommit() {
-    if (txInProgress)
-        return;
+    if (txInProgress) return;
     txInProgress = true;
-
-    // No cache clean needed before DMA read — MPU non-cacheable region
     for (int i = 0; i < NUM_MOTORS; i++) {
-        HAL_TIM_PWM_Start_DMA(&hMotorTimer, motorChannel[i],
-                              (uint32_t*)dshotCompareBuf[i],
-                              dshot::DSHOT_COMPARE_BUF_SIZE);
+        TIM_HandleTypeDef* htim = &hMotorTimer[i];
+        for (int j = 0; j < i; j++)
+            if (hMotorTimer[j].Instance == motorRoutes[i].timer) { htim = &hMotorTimer[j]; break; }
+        HAL_TIM_PWM_Start_DMA(htim, motorRoutes[i].channel,
+                              (uint32_t*)dshotCompareBuf[i], dshot::DSHOT_COMPARE_BUF_SIZE);
     }
 }
 
-// ============================================================================
-// Bidirectional telemetry
-// ============================================================================
-
 uint32_t dshotReadTelemetryRaw(uint8_t motorIndex) {
-    if (motorIndex >= NUM_MOTORS)
-        return 0;
-    if (!telemReady[motorIndex])
-        return 0;
+    if (motorIndex >= NUM_MOTORS) return 0;
+    if (!telemReady[motorIndex]) return 0;
     telemReady[motorIndex] = false;
-    // No cache invalidate needed — MPU non-cacheable region
-    // TODO: edge-to-GCR conversion from telemCaptureBuf
     return 0;
 }
 
 bool dshotTelemetryReady(uint8_t motorIndex) {
-    if (motorIndex >= NUM_MOTORS)
-        return false;
+    if (motorIndex >= NUM_MOTORS) return false;
     return telemReady[motorIndex];
 }
 
 void dshotBidirTurnaround(uint8_t motorIndex, bool toInput) {
-    if (motorIndex >= NUM_MOTORS)
-        return;
+    if (motorIndex >= NUM_MOTORS) return;
+    TIM_HandleTypeDef* htim = &hMotorTimer[motorIndex];
+    for (int j = 0; j < motorIndex; j++)
+        if (hMotorTimer[j].Instance == motorRoutes[motorIndex].timer) { htim = &hMotorTimer[j]; break; }
 
-    // CRITICAL: no cache maintenance here — 30us turnaround window
-    // MPU non-cacheable region is the ONLY acceptable solution
     if (toInput) {
-        HAL_TIM_PWM_Stop_DMA(&hMotorTimer, motorChannel[motorIndex]);
+        HAL_TIM_PWM_Stop_DMA(htim, motorRoutes[motorIndex].channel);
         TIM_IC_InitTypeDef ic = {};
         ic.ICPolarity = TIM_ICPOLARITY_BOTHEDGE;
         ic.ICSelection = TIM_ICSELECTION_DIRECTTI;
         ic.ICPrescaler = TIM_ICPSC_DIV1;
         ic.ICFilter = 0;
-        HAL_TIM_IC_ConfigChannel(&hMotorTimer, &ic, motorChannel[motorIndex]);
-        // No cache invalidate before DMA write to capture buffer — MPU handles it
-        HAL_TIM_IC_Start_DMA(&hMotorTimer, motorChannel[motorIndex],
-                             telemCaptureBuf[motorIndex], 32);
+        HAL_TIM_IC_ConfigChannel(htim, &ic, motorRoutes[motorIndex].channel);
+        HAL_TIM_IC_Start_DMA(htim, motorRoutes[motorIndex].channel, telemCaptureBuf[motorIndex], 32);
     } else {
-        HAL_TIM_IC_Stop_DMA(&hMotorTimer, motorChannel[motorIndex]);
+        HAL_TIM_IC_Stop_DMA(htim, motorRoutes[motorIndex].channel);
         TIM_OC_InitTypeDef oc = {};
         oc.OCMode = TIM_OCMODE_PWM1;
         oc.Pulse = 0;
         oc.OCPolarity = TIM_OCPOLARITY_HIGH;
         oc.OCFastMode = TIM_OCFAST_DISABLE;
-        HAL_TIM_PWM_ConfigChannel(&hMotorTimer, &oc, motorChannel[motorIndex]);
+        HAL_TIM_PWM_ConfigChannel(htim, &oc, motorRoutes[motorIndex].channel);
     }
 }
 

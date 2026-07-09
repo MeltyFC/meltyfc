@@ -99,3 +99,42 @@
 #define NVIC_PRIO_UART 7      // CRSF
 #define NVIC_PRIO_USB 10      // CDC serial — low, never preempts DMA
 #define NVIC_PRIO_SYSTICK 15  // Lowest — timing only
+
+// ============================================================================
+// A1: Motor Route Table — PLACEHOLDER (awaiting Step 0 dump)
+// Using TIM1×4 as assumption — WILL BE WRONG, update from dump
+// ============================================================================
+#define MOTOR1_TIMER TIM1
+#define MOTOR2_TIMER TIM1
+#define MOTOR3_TIMER TIM1
+#define MOTOR4_TIMER TIM1
+#define MOTOR1_CHANNEL TIM_CHANNEL_1
+#define MOTOR2_CHANNEL TIM_CHANNEL_2
+#define MOTOR3_CHANNEL TIM_CHANNEL_3
+#define MOTOR4_CHANNEL TIM_CHANNEL_4
+#define MOTOR1_AF 1
+#define MOTOR2_AF 1
+#define MOTOR3_AF 1
+#define MOTOR4_AF 1
+#define MOTOR1_GPIO_PORT GPIOB
+#define MOTOR2_GPIO_PORT GPIOB
+#define MOTOR3_GPIO_PORT GPIOC
+#define MOTOR4_GPIO_PORT GPIOC
+#define MOTOR1_GPIO_PIN GPIO_PIN_0
+#define MOTOR2_GPIO_PIN GPIO_PIN_1
+#define MOTOR3_GPIO_PIN GPIO_PIN_9
+#define MOTOR4_GPIO_PIN GPIO_PIN_8
+// DMA streams — PLACEHOLDER, will be resolved from RM0090 after dump
+#define MOTOR1_DMA_STREAM DMA2_Stream1
+#define MOTOR2_DMA_STREAM DMA2_Stream2
+#define MOTOR3_DMA_STREAM DMA2_Stream6
+#define MOTOR4_DMA_STREAM DMA2_Stream4
+#define MOTOR1_DMA_CHANNEL DMA_CHANNEL_6
+#define MOTOR2_DMA_CHANNEL DMA_CHANNEL_6
+#define MOTOR3_DMA_CHANNEL DMA_CHANNEL_6
+#define MOTOR4_DMA_CHANNEL DMA_CHANNEL_6
+
+#define LED_STRIP_CHANNEL TIM_CHANNEL_1
+#define LED_STRIP_AF 2
+#define LED_STRIP_GPIO_PORT GPIOB
+#define LED_STRIP_GPIO_PIN GPIO_PIN_6

@@ -1,22 +1,9 @@
-// MeltyFC — DShot HAL: STM32F4 Family (F405)
-// Timer+DMA driver for DShot300 with bidirectional GCR telemetry.
-// Uses DMA2 stream+channel architecture (fixed mapping per F4 reference manual).
+// MeltyFC — DShot HAL: STM32F4 Family (F405, F411)
+// A1: Table-driven timer/DMA routing — no hardcoded timer instances.
+// Each motor's timer/channel/AF/DMA comes from the target's pinmap.h.
+// Supports both single-timer (TIM1×4) and split-timer (TIM3+TIM4) boards.
 //
-// Pin/timer/DMA mapping from target pinmap.h (BF-derived):
-//   CruxF405HD: TIM1 CH1-CH4 on PA8/PA9/PA10/PA11, DMA2 streams
-//
-// DShot300 protocol:
-//   16-bit frame → 17 compare values (16 data bits + trailing idle)
-//   Timer runs in PWM mode, DMA feeds compare register each bit period
-//   Bit timing: period=280 ticks @84MHz, 1=210 ticks (75%), 0=105 ticks (37.5%)
-//
-// Bidirectional telemetry:
-//   After frame TX complete, turnaround pin to input-capture
-//   ESC responds with 21-bit GCR-encoded eRPM on the inverted line
-//   Input-capture DMA captures edge timestamps → GCR decode in pure logic
-//
-// [2026-07-09] G2: Driver body written from BF-derived pinmap + DShot spec.
-//   Self-verified = compiles. Hardware-verified = on board arrival.
+// [2026-07-09] A1 refactor: route table replaces hardcoded TIM1 assumption.
 
 #ifndef NATIVE_BUILD
 
@@ -31,77 +18,59 @@
 namespace melty {
 namespace hal {
 
-// ============================================================================
-// Configuration from pinmap.h
-// ============================================================================
-
-// Number of motors MeltyFC uses (3 for donut, 4 max supported by hardware)
 static constexpr uint8_t NUM_MOTORS = 4;
 
-// Timer clock = APB2 timer clock = 168MHz/2 * 2 = 168MHz (F405 with APB2 prescaler=2)
-// Actually: if APB2 prescaler != 1, timer clock = APB2 * 2
-// Crux F405: SYSCLK=168, AHB=168, APB2=84 → timer clock = 84*2 = 168MHz
-// But with default Arduino core, timer clock might be 84MHz. Use 84MHz to be safe.
-// DShot300 timing — computed at init from SystemCoreClock (I-12)
-// NOT hardcoded: if clock config is wrong, timing is wrong → ESC sees garbage → fail safe
+// DShot300 timing — computed at init from SystemCoreClock (I-12 + I-16)
 static dshot::DshotTimingConfig dshotTiming;
 
-// ============================================================================
 // DMA buffers — must NOT be in CCM (invariant I-11)
-// ============================================================================
-
-// Compare buffers: one per motor, 17 values each (16 bits + trailing zero)
 static DMA_BUFFER_ATTR uint16_t dshotCompareBuf[NUM_MOTORS][dshot::DSHOT_COMPARE_BUF_SIZE];
-
-// Telemetry input-capture buffers
 static DMA_BUFFER_ATTR uint32_t telemCaptureBuf[NUM_MOTORS][32];
 static volatile bool telemReady[NUM_MOTORS] = {};
 static volatile bool txInProgress = false;
 
-// ============================================================================
-// Timer + DMA handles
-// ============================================================================
-
-static TIM_HandleTypeDef hMotorTimer;
+// A1: Per-motor timer handle array — supports multi-timer boards
+// Deduplicated: if all motors share one timer, only one handle is initialized
+static TIM_HandleTypeDef hMotorTimer[NUM_MOTORS];
 static DMA_HandleTypeDef hDmaMotor[NUM_MOTORS];
 
-// Motor channel map (timer channel index for each motor)
-static constexpr uint32_t motorChannel[NUM_MOTORS] = {
-    TIM_CHANNEL_1, TIM_CHANNEL_2, TIM_CHANNEL_3, TIM_CHANNEL_4
+// A1: Route table — populated from pinmap defines
+struct F4MotorRoute {
+    TIM_TypeDef* timer;
+    uint32_t channel;
+    GPIO_TypeDef* gpioPort;
+    uint16_t gpioPin;
+    uint8_t gpioAF;
+    DMA_Stream_TypeDef* dmaStream;
+    uint32_t dmaChannel;
 };
 
-// ============================================================================
-// GPIO helpers
-// ============================================================================
+static const F4MotorRoute motorRoutes[NUM_MOTORS] = {
+    { MOTOR1_TIMER, MOTOR1_CHANNEL, MOTOR1_GPIO_PORT, MOTOR1_GPIO_PIN, MOTOR1_AF, MOTOR1_DMA_STREAM, MOTOR1_DMA_CHANNEL },
+    { MOTOR2_TIMER, MOTOR2_CHANNEL, MOTOR2_GPIO_PORT, MOTOR2_GPIO_PIN, MOTOR2_AF, MOTOR2_DMA_STREAM, MOTOR2_DMA_CHANNEL },
+    { MOTOR3_TIMER, MOTOR3_CHANNEL, MOTOR3_GPIO_PORT, MOTOR3_GPIO_PIN, MOTOR3_AF, MOTOR3_DMA_STREAM, MOTOR3_DMA_CHANNEL },
+    { MOTOR4_TIMER, MOTOR4_CHANNEL, MOTOR4_GPIO_PORT, MOTOR4_GPIO_PIN, MOTOR4_AF, MOTOR4_DMA_STREAM, MOTOR4_DMA_CHANNEL },
+};
 
-// Parse pin define (e.g., PA8) to GPIO port + pin number
-// This is resolved at compile time from pinmap.h defines
-typedef struct {
-    GPIO_TypeDef* port;
-    uint16_t pin;
-    uint8_t af;  // Alternate function number
-} PinDef;
+// Track which timers we've already initialized (for split-timer dedup)
+static TIM_TypeDef* initializedTimers[NUM_MOTORS] = {};
+static uint8_t numInitializedTimers = 0;
 
-// Motor pin table — populated from pinmap.h at init
-// Hardware-specific: filled by dshotConfigurePins()
-static PinDef __attribute__((unused)) motorPins[NUM_MOTORS];
-
-static void __attribute__((unused)) dshotConfigureGpio(const PinDef* pin, bool asOutput) {
-    GPIO_InitTypeDef gpio = {};
-    gpio.Pin = pin->pin;
-    gpio.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-    gpio.Pull = GPIO_NOPULL;
-
-    if (asOutput) {
-        gpio.Mode = GPIO_MODE_AF_PP;
-        gpio.Alternate = pin->af;
-    } else {
-        // Input capture mode for bidir telemetry
-        gpio.Mode = GPIO_MODE_AF_PP;  // Still AF for timer input capture
-        gpio.Alternate = pin->af;
+static bool timerAlreadyInitialized(TIM_TypeDef* tim) {
+    for (uint8_t i = 0; i < numInitializedTimers; i++) {
+        if (initializedTimers[i] == tim) return true;
     }
+    return false;
+}
 
-    HAL_GPIO_Init(pin->port, &gpio);
+static void enableTimerClock(TIM_TypeDef* tim) {
+    // Enable the RCC clock for any timer we might use
+    if (tim == TIM1) __HAL_RCC_TIM1_CLK_ENABLE();
+    else if (tim == TIM3) __HAL_RCC_TIM3_CLK_ENABLE();
+    else if (tim == TIM4) __HAL_RCC_TIM4_CLK_ENABLE();
+#ifdef TIM8
+    else if (tim == TIM8) __HAL_RCC_TIM8_CLK_ENABLE();
+#endif
 }
 
 // ============================================================================
@@ -115,27 +84,20 @@ void dshotInit() {
         DMA_BUFFER_ASSERT(telemCaptureBuf[i]);
     }
 
-    // I-12 + I-16: Derive timing from SystemCoreClock (never hardcode)
-    // F-02 FIX: F405 APB2 timer clock = SystemCoreClock (NOT /2!)
-    // When APB2 prescaler != 1 (it's /2 on F405), the silicon applies a ×2
-    // kernel multiplier to timer clocks: APB2=84MHz × 2 = 168MHz = SystemCoreClock.
-    // The old /2 produced 84MHz timing on a 168MHz timer → DShot300 transmitted
-    // at DShot600 rate → ESC auto-detects wrong rate → bidir telemetry silently broken.
-    uint32_t timerClock = SystemCoreClock;  // 168MHz on F405, 100MHz on F411
+    // I-12 + I-16: Derive timing from SystemCoreClock
+    // F4: timer clock = SystemCoreClock (APB2 prescaler !=1, ×2 multiplier)
+    uint32_t timerClock = SystemCoreClock;
 
-    // I-16: Assert timer clock matches target expectation
 #ifdef EXPECTED_TIMER_CLOCK_HZ
-    // Tolerance: 5% (same as I-12 system clock assert)
     if (timerClock < (EXPECTED_TIMER_CLOCK_HZ * 95 / 100) ||
         timerClock > (EXPECTED_TIMER_CLOCK_HZ * 105 / 100)) {
-        while (1) {} // Timer clock mismatch — hang for IWDG
+        while (1) {} // I-16: Timer clock mismatch
     }
 #endif
 
     dshotTiming = dshot::calculateTiming(timerClock, DSHOT_BITRATE_HZ);
 
-    // R6-3: Prefill compare buffers with ENCODED disarm frame (throttle=0)
-    // Prevents uninitialized buffer -> random CRC-lucky throttle at power-on
+    // R6-3: Prefill with encoded disarm frame
     {
         uint16_t disarmFrame = dshot::packThrottleFrame(0, false);
         for (int i = 0; i < NUM_MOTORS; i++) {
@@ -143,35 +105,43 @@ void dshotInit() {
         }
     }
 
-    // Enable timer and DMA clocks
+    // Enable DMA clocks
     __HAL_RCC_DMA1_CLK_ENABLE();
     __HAL_RCC_DMA2_CLK_ENABLE();
-    __HAL_RCC_TIM1_CLK_ENABLE();
-    __HAL_RCC_TIM3_CLK_ENABLE();
-    __HAL_RCC_TIM4_CLK_ENABLE();
-#ifdef TIM8
-    __HAL_RCC_TIM8_CLK_ENABLE();  // F411 doesn't have TIM8
-#endif
 
-    // Configure timer — use MOTOR_TIMER if single timer, else MOTOR1_TIMER
-#if defined(MOTOR_TIMER)
-    hMotorTimer.Instance = MOTOR_TIMER;
-#elif defined(MOTOR1_TIMER)
-    hMotorTimer.Instance = MOTOR1_TIMER;
-    // NOTE: split-timer boards (TIM3+TIM4) need a second handle — deferred to P2
-#else
-    #error "No motor timer defined in pinmap.h"
-#endif
-    hMotorTimer.Init.Prescaler = 0;  // No prescaler — full timer clock
-    hMotorTimer.Init.CounterMode = TIM_COUNTERMODE_UP;
-    hMotorTimer.Init.Period = dshotTiming.bitPeriodTicks - 1;
-    hMotorTimer.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-    hMotorTimer.Init.RepetitionCounter = 0;
-    hMotorTimer.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
-    HAL_TIM_PWM_Init(&hMotorTimer);
+    // A1: Table-driven timer + GPIO + DMA init
+    numInitializedTimers = 0;
 
-    // Configure each channel for PWM output
     for (int i = 0; i < NUM_MOTORS; i++) {
+        const F4MotorRoute& route = motorRoutes[i];
+
+        // Enable timer clock (once per unique timer)
+        if (!timerAlreadyInitialized(route.timer)) {
+            enableTimerClock(route.timer);
+
+            // Configure timer base
+            hMotorTimer[i].Instance = route.timer;
+            hMotorTimer[i].Init.Prescaler = 0;
+            hMotorTimer[i].Init.CounterMode = TIM_COUNTERMODE_UP;
+            hMotorTimer[i].Init.Period = dshotTiming.bitPeriodTicks - 1;
+            hMotorTimer[i].Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+            hMotorTimer[i].Init.RepetitionCounter = 0;
+            hMotorTimer[i].Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+            HAL_TIM_PWM_Init(&hMotorTimer[i]);
+
+            // MOE only for TIM1/TIM8 (ES0182 §2.6.1: break not connected, safe)
+            if (route.timer == TIM1
+#ifdef TIM8
+                || route.timer == TIM8
+#endif
+            ) {
+                __HAL_TIM_MOE_ENABLE(&hMotorTimer[i]);
+            }
+
+            initializedTimers[numInitializedTimers++] = route.timer;
+        }
+
+        // Configure output channel
         TIM_OC_InitTypeDef oc = {};
         oc.OCMode = TIM_OCMODE_PWM1;
         oc.Pulse = 0;
@@ -179,30 +149,39 @@ void dshotInit() {
         oc.OCFastMode = TIM_OCFAST_DISABLE;
         oc.OCNPolarity = TIM_OCNPOLARITY_HIGH;
         oc.OCIdleState = TIM_OCIDLESTATE_RESET;
-        HAL_TIM_PWM_ConfigChannel(&hMotorTimer, &oc, motorChannel[i]);
-    }
 
-    // DMA configuration — I-3: explicit DMA_NORMAL (non-circular)
-    // Dead CPU = DMA stops = motors stop. Never DMA_CIRCULAR.
-    // Stream/channel assignments resolved at board bringup from pinmap.h
-    // TODO: fill DMA stream instances per target
-    for (int i = 0; i < NUM_MOTORS; i++) {
+        // Find the timer handle for this motor's timer
+        TIM_HandleTypeDef* htim = &hMotorTimer[i];
+        for (int j = 0; j < i; j++) {
+            if (hMotorTimer[j].Instance == route.timer) {
+                htim = &hMotorTimer[j];
+                break;
+            }
+        }
+        HAL_TIM_PWM_ConfigChannel(htim, &oc, route.channel);
+
+        // Configure GPIO with correct AF
+        GPIO_InitTypeDef gpio = {};
+        gpio.Pin = route.gpioPin;
+        gpio.Mode = GPIO_MODE_AF_PP;
+        gpio.Pull = GPIO_NOPULL;
+        gpio.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+        gpio.Alternate = route.gpioAF;
+        HAL_GPIO_Init(route.gpioPort, &gpio);
+
+        // DMA configuration — I-3: explicit DMA_NORMAL
+        hDmaMotor[i].Instance = route.dmaStream;
+        hDmaMotor[i].Init.Channel = route.dmaChannel;
         hDmaMotor[i].Init.Direction = DMA_MEMORY_TO_PERIPH;
         hDmaMotor[i].Init.PeriphInc = DMA_PINC_DISABLE;
         hDmaMotor[i].Init.MemInc = DMA_MINC_ENABLE;
         hDmaMotor[i].Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
         hDmaMotor[i].Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
-        hDmaMotor[i].Init.Mode = DMA_NORMAL;  // I-3: explicit, never circular
+        hDmaMotor[i].Init.Mode = DMA_NORMAL;  // I-3: never circular
         hDmaMotor[i].Init.Priority = DMA_PRIORITY_HIGH;
-        hDmaMotor[i].Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+        hDmaMotor[i].Init.FIFOMode = DMA_FIFOMODE_DISABLE;  // E-03: direct mode
+        HAL_DMA_Init(&hDmaMotor[i]);
     }
-
-    // Enable motor output (TIM1/TIM8 have break feature — must enable MOE)
-    // ES0182 §2.6.1: PWM may re-enable despite system break in automatic
-    // output enable mode. Workaround: use software break management (OSSI bit)
-    // or disable break input entirely if not using external break.
-    // MeltyFC: break input not connected — disable it to avoid erratum.
-    __HAL_TIM_MOE_ENABLE(&hMotorTimer);
 }
 
 // ============================================================================
@@ -212,26 +191,27 @@ void dshotInit() {
 void dshotSend(uint8_t motorIndex, uint16_t frame) {
     if (motorIndex >= NUM_MOTORS)
         return;
-
-    // Encode the 16-bit DShot frame to the 17-element compare buffer
     dshot::encodeToCompareBuffer(frame, dshotTiming, dshotCompareBuf[motorIndex]);
 }
 
 void dshotCommit() {
     if (txInProgress)
         return;
-
     txInProgress = true;
 
-    // Start DMA transfer for each motor channel
     for (int i = 0; i < NUM_MOTORS; i++) {
-        HAL_TIM_PWM_Start_DMA(&hMotorTimer, motorChannel[i],
+        // Find the right timer handle for this motor
+        TIM_HandleTypeDef* htim = &hMotorTimer[i];
+        for (int j = 0; j < i; j++) {
+            if (hMotorTimer[j].Instance == motorRoutes[i].timer) {
+                htim = &hMotorTimer[j];
+                break;
+            }
+        }
+        HAL_TIM_PWM_Start_DMA(htim, motorRoutes[i].channel,
                               (uint32_t*)dshotCompareBuf[i],
                               dshot::DSHOT_COMPARE_BUF_SIZE);
     }
-
-    // DMA transfer complete callback will clear txInProgress
-    // and initiate bidir turnaround if enabled
 }
 
 // ============================================================================
@@ -239,72 +219,48 @@ void dshotCommit() {
 // ============================================================================
 
 uint32_t dshotReadTelemetryRaw(uint8_t motorIndex) {
-    if (motorIndex >= NUM_MOTORS)
-        return 0;
-    if (!telemReady[motorIndex])
-        return 0;
-
+    if (motorIndex >= NUM_MOTORS) return 0;
+    if (!telemReady[motorIndex]) return 0;
     telemReady[motorIndex] = false;
-
-    // Decode capture timestamps to 21-bit GCR frame
-    // The capture buffer contains edge timestamps from input-capture DMA
-    // Edge timing → bit durations → GCR-encoded bits → 21-bit raw frame
-    // Actual GCR decode happens in pure-logic dshot_common::gcrDecode()
-
-    // TODO: Implement edge-to-GCR conversion from telemCaptureBuf
-    // This is the same algorithm across all families — extract to common
-    return 0;
+    return 0; // TODO: edge-to-GCR conversion
 }
 
 bool dshotTelemetryReady(uint8_t motorIndex) {
-    if (motorIndex >= NUM_MOTORS)
-        return false;
+    if (motorIndex >= NUM_MOTORS) return false;
     return telemReady[motorIndex];
 }
 
 void dshotBidirTurnaround(uint8_t motorIndex, bool toInput) {
-    if (motorIndex >= NUM_MOTORS)
-        return;
+    if (motorIndex >= NUM_MOTORS) return;
 
-    // Reconfigure the motor GPIO between output (TX) and input-capture (RX)
-    // This happens inside the 30us turnaround window — must be fast
+    TIM_HandleTypeDef* htim = &hMotorTimer[motorIndex];
+    for (int j = 0; j < motorIndex; j++) {
+        if (hMotorTimer[j].Instance == motorRoutes[motorIndex].timer) {
+            htim = &hMotorTimer[j];
+            break;
+        }
+    }
+
     if (toInput) {
-        // Switch to input capture for telemetry reception
-        // 1. Stop PWM output on this channel
-        HAL_TIM_PWM_Stop_DMA(&hMotorTimer, motorChannel[motorIndex]);
-
-        // 2. Reconfigure timer channel for input capture
+        HAL_TIM_PWM_Stop_DMA(htim, motorRoutes[motorIndex].channel);
         TIM_IC_InitTypeDef ic = {};
-        ic.ICPolarity = TIM_ICPOLARITY_BOTHEDGE;  // Capture both edges for GCR
+        ic.ICPolarity = TIM_ICPOLARITY_BOTHEDGE;
         ic.ICSelection = TIM_ICSELECTION_DIRECTTI;
         ic.ICPrescaler = TIM_ICPSC_DIV1;
         ic.ICFilter = 0;
-        HAL_TIM_IC_ConfigChannel(&hMotorTimer, &ic, motorChannel[motorIndex]);
-
-        // 3. Start input capture DMA
-        HAL_TIM_IC_Start_DMA(&hMotorTimer, motorChannel[motorIndex],
+        HAL_TIM_IC_ConfigChannel(htim, &ic, motorRoutes[motorIndex].channel);
+        HAL_TIM_IC_Start_DMA(htim, motorRoutes[motorIndex].channel,
                              telemCaptureBuf[motorIndex], 32);
     } else {
-        // Switch back to PWM output
-        HAL_TIM_IC_Stop_DMA(&hMotorTimer, motorChannel[motorIndex]);
-
+        HAL_TIM_IC_Stop_DMA(htim, motorRoutes[motorIndex].channel);
         TIM_OC_InitTypeDef oc = {};
         oc.OCMode = TIM_OCMODE_PWM1;
         oc.Pulse = 0;
         oc.OCPolarity = TIM_OCPOLARITY_HIGH;
         oc.OCFastMode = TIM_OCFAST_DISABLE;
-        HAL_TIM_PWM_ConfigChannel(&hMotorTimer, &oc, motorChannel[motorIndex]);
+        HAL_TIM_PWM_ConfigChannel(htim, &oc, motorRoutes[motorIndex].channel);
     }
 }
-
-// ============================================================================
-// DMA callbacks (called from IRQ context)
-// ============================================================================
-
-// TODO: Wire these to the DMA TC interrupt handlers
-// HAL_TIM_PWM_PulseFinishedCallback → frame sent, initiate turnaround
-// HAL_TIM_IC_CaptureCallback → telemetry edge captured
-// DMA TC → telemetry capture complete, set telemReady[i] = true
 
 } // namespace hal
 } // namespace melty
