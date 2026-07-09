@@ -162,3 +162,25 @@ is the reference implementation — it's superior to `default:` because it keeps
 | I-17 | Telemetry framing + EDT discrimination precede eRPM | GCR start-bit validation (F-03) + EDT type check |
 | I-18 | Verification gates fail closed on missing artifacts/failed tools | verify.sh: no || true on tools, missing map = fail |
 | I-19 | Coverage reported split: native/core vs target/HAL | Phase report format requirement |
+
+## Invariants I-20 through I-21 + P-06 Ruling
+
+| ID | Rule | Enforcement |
+|----|------|-------------|
+| I-20 | Clock params carry RM-cited limits; compliance table re-run on any change | docs/CLOCK_SPEC_AUDIT.md (I-20 gate) |
+| I-21 | HAL DShot/WS2812 drivers must not hardcode timer instances | verify.sh grep-gate: TIM[0-9] outside pinmap includes = fail |
+
+## P-06 CSS Ruling: NO Clock Security System
+
+The designed clock-loss response is:
+1. HSE dies mid-fight
+2. PLL unlocks
+3. Core halts (or runs on HSI at wrong frequency)
+4. Non-circular DMA stops (I-3) — no more DShot frames
+5. ESC signal timeout fires — motors stop
+6. IWDG fires — system resets
+7. I-12 boot assert detects wrong clock — ERROR blink, arming refused
+
+This chain is verified by architecture (I-3 non-circular DMA is the key link).
+CSS + NMI handler for limp-home on HSI is NOT implemented — the hard-stop chain
+is the designed behavior. Documented, not undecided.

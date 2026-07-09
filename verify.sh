@@ -107,8 +107,8 @@ for TARGET in "${ALL_TARGETS[@]}"; do
             RAM_USED=0
         fi
     else
-        FLASH_USED=0
-        RAM_USED=0
+        # B3: missing ELF = fail, not skip
+        fail "${TARGET}: firmware.elf not found after successful build — build system broken"
     fi
 
     FLASH_TOTAL=${TARGET_FLASH[$TARGET]}
@@ -133,7 +133,8 @@ for TARGET in "${ALL_TARGETS[@]}"; do
             warn "${TARGET}: RAM usage ${RAM_PCT}% exceeds ${RAM_WARN_PCT}% warning threshold"
         fi
     else
-        warn "${TARGET}: Could not parse resource usage — check manually"
+        # B3: size parse failure = fail (size tool broken or ELF corrupt)
+        fail "${TARGET}: Could not parse resource usage — arm-none-eabi-size failed"
     fi
 
     # I-11 map-gate: verify DMA sections exist AND are at legal addresses
@@ -297,6 +298,15 @@ for TARGET_DIR in targets/*/; do
         warn "${TARGET_NAME}: Pinmap is BF_CONFIG_DERIVED — verify on live dump at arrival"
     fi
 done
+
+# B1/CO-4: Choke-point gates — motor authority must flow through safety.cpp only
+CHOKE_LEAK=$(grep -rn 'chokeMotorOutput\|throttleToDshot' \
+    src/ 2>/dev/null | grep -v 'safety\.\|motors_dshot\.\|main\.cpp\|test/' || true)
+if [ -n "$CHOKE_LEAK" ]; then
+    echo "CO-4 VIOLATION — motor authority function called outside approved files:"
+    echo "$CHOKE_LEAK"
+    fail "Motor authority must only be called from safety.cpp/motors_dshot/main/test"
+fi
 
 # Safety-tier gate: no MELTYFC_TIER/MELTYFC_HAS inside safety-critical code
 TIER_IN_SAFETY=$(grep -n 'MELTYFC_TIER\|MELTYFC_HAS' \
