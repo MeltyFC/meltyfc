@@ -54,14 +54,11 @@ namespace melty {
 // void config_cli_update();
 }
 
-// --- Platform-agnostic timing helpers ---
+// --- A3: DWT cycle counter for µs resolution ---
 #ifndef ARDUINO
-static inline uint32_t micros_hal() {
-    // HAL_GetTick() returns ms; use DWT cycle counter for µs resolution
-    // For now, ms*1000 is sufficient for the skeleton
-    return HAL_GetTick() * 1000;
-}
-#define micros() micros_hal()
+#include "hal/common/dwt_micros.h"
+// melty::micros() replaces the HAL_GetTick()*1000 stub
+using melty::micros;
 #endif
 
 static void melty_setup() {
@@ -179,6 +176,9 @@ int main(void) {
         }
     }
     #endif
+
+    // A3: DWT cycle counter — must be after SystemClock_Config
+    melty::dwtInit();
 
     melty_setup();
     while (1) {

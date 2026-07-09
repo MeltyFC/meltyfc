@@ -44,6 +44,16 @@ SECTIONS
     _edtcm_dma = .;
   } >DTCM
 
+  /* .noinit — survives reset for fault breadcrumbs + reset-cause pairing */
+  .noinit (NOLOAD) : {
+    . = ALIGN(4);
+    _snoinit = .;
+    *(.noinit)
+    *(.noinit*)
+    . = ALIGN(4);
+    _enoinit = .;
+  } >RAM
+
   ._user_heap_stack : { . = ALIGN(8); PROVIDE(end = .); PROVIDE(_end = .); . = . + _Min_Heap_Size; . = . + _Min_Stack_Size; . = ALIGN(8); } >RAM
 
   /DISCARD/ : { libc.a(*) libm.a(*) libgcc.a(*) }
