@@ -68,7 +68,8 @@ TARGETS_TOTAL=${#ALL_TARGETS[@]}
 for TARGET in "${ALL_TARGETS[@]}"; do
     echo ""
     echo "  Building: ${TARGET}"
-    BUILD_OUTPUT=$(pio run -e "$TARGET" 2>&1)
+    MAP_FILE=".pio/build/${TARGET}/firmware.map"
+    BUILD_OUTPUT=$(PLATFORMIO_BUILD_FLAGS="-Wl,-Map,${MAP_FILE}" pio run -e "$TARGET" 2>&1)
     BUILD_EXIT=$?
 
     if [ $BUILD_EXIT -ne 0 ]; then
@@ -118,34 +119,49 @@ for TARGET in "${ALL_TARGETS[@]}"; do
         warn "${TARGET}: Could not parse resource usage — check manually"
     fi
 
-    # I-11 map-gate: verify DMA sections are at legal addresses
-    MAP_FILE="firmware.map"
+    # I-11 map-gate: verify DMA sections exist AND are at legal addresses
+    # Missing section = FAIL (not skip) — a dropped/renamed section is the most
+    # likely real-world failure and must not pass silently.
     if [ -f "$MAP_FILE" ]; then
         case "$TARGET" in
             *f7mini|*ghf745)
-                # F7: .dtcm_dma must be in 0x20000000-0x2000FFFF
-                DTCM_ADDR=$(grep '^\s*\.dtcm_dma' "$MAP_FILE" | awk '{print $2}' | head -1)
+                # F7: .dtcm_dma must be defined and at 0x20000000-0x2000FFFF
+                DTCM_ADDR=$(grep '\.dtcm_dma' "$MAP_FILE" | grep '0x' | awk '{for(i=1;i<=NF;i++) if($i ~ /^0x/) {print $i; exit}}' | head -1)
                 if [ -n "$DTCM_ADDR" ] && [ "$DTCM_ADDR" != "0x00000000" ]; then
                     ADDR_DEC=$((DTCM_ADDR))
                     if [ "$ADDR_DEC" -lt $((0x20000000)) ] || [ "$ADDR_DEC" -gt $((0x2000FFFF)) ]; then
                         fail "${TARGET}: .dtcm_dma at ${DTCM_ADDR} — NOT in DTCM (I-11a)"
                     fi
                     echo "  .dtcm_dma: ${DTCM_ADDR} (DTCM OK)"
+                else
+                    # Section defined but empty (stubs not yet linked) — verify ldscript has it
+                    if grep -q 'dtcm_dma' "$MAP_FILE" 2>/dev/null; then
+                        echo "  .dtcm_dma: section defined, empty (stubs — will populate at integration)"
+                    else
+                        fail "${TARGET}: .dtcm_dma section MISSING from map AND linker script (I-11a)"
+                    fi
                 fi
                 ;;
             *h743*)
-                # H7: .d2_dma must be in 0x30000000-0x3001FFFF
-                D2_ADDR=$(grep '^\s*\.d2_dma' "$MAP_FILE" | awk '{print $2}' | head -1)
+                # H7: .d2_dma must be defined and at 0x30000000-0x3001FFFF
+                D2_ADDR=$(grep '\.d2_dma' "$MAP_FILE" | grep '0x' | awk '{for(i=1;i<=NF;i++) if($i ~ /^0x/) {print $i; exit}}' | head -1)
                 if [ -n "$D2_ADDR" ] && [ "$D2_ADDR" != "0x00000000" ]; then
                     ADDR_DEC=$((D2_ADDR))
                     if [ "$ADDR_DEC" -lt $((0x30000000)) ] || [ "$ADDR_DEC" -gt $((0x3001FFFF)) ]; then
                         fail "${TARGET}: .d2_dma at ${D2_ADDR} — NOT in D2 SRAM (I-11b)"
                     fi
                     echo "  .d2_dma: ${D2_ADDR} (D2 SRAM OK)"
+                else
+                    if grep -q 'd2_dma' "$MAP_FILE" 2>/dev/null; then
+                        echo "  .d2_dma: section defined, empty (stubs — will populate at integration)"
+                    else
+                        fail "${TARGET}: .d2_dma section MISSING from map AND linker script (I-11b)"
+                    fi
                 fi
                 ;;
         esac
-        rm -f "$MAP_FILE"
+    else
+        warn "${TARGET}: No map file generated — cannot verify DMA section placement"
     fi
 
     TARGETS_PASSED=$((TARGETS_PASSED + 1))

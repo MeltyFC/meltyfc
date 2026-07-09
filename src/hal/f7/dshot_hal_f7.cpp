@@ -44,6 +44,7 @@ static volatile bool telemReady[NUM_MOTORS] = {};
 static volatile bool txInProgress = false;
 
 static TIM_HandleTypeDef hMotorTimer;
+static DMA_HandleTypeDef hDmaMotor[NUM_MOTORS];
 
 static constexpr uint32_t motorChannel[NUM_MOTORS] = {
     TIM_CHANNEL_1, TIM_CHANNEL_2, TIM_CHANNEL_3, TIM_CHANNEL_4
@@ -109,6 +110,14 @@ void dshotInit() {
         oc.OCNPolarity = TIM_OCNPOLARITY_HIGH;
         oc.OCIdleState = TIM_OCIDLESTATE_RESET;
         HAL_TIM_PWM_ConfigChannel(&hMotorTimer, &oc, motorChannel[i]);
+    }
+
+    // I-3: explicit DMA_NORMAL — dead CPU = DMA stops = motors stop
+    // TODO: fill DMA stream instances per target at bringup
+    for (int i = 0; i < NUM_MOTORS; i++) {
+        hDmaMotor[i].Init.Mode = DMA_NORMAL;  // I-3: never circular
+        hDmaMotor[i].Init.Direction = DMA_MEMORY_TO_PERIPH;
+        hDmaMotor[i].Init.Priority = DMA_PRIORITY_HIGH;
     }
 
     __HAL_TIM_MOE_ENABLE(&hMotorTimer);

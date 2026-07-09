@@ -158,10 +158,20 @@ void dshotInit() {
         HAL_TIM_PWM_ConfigChannel(&hMotorTimer, &oc, motorChannel[i]);
     }
 
-    // DMA configuration for each motor channel
-    // Stream/channel assignment from F4 reference manual + BF timer map
-    // TODO: resolve per-target DMA stream assignments from pinmap.h
-    // For now, the structure is correct — fill stream/channel at board bringup
+    // DMA configuration — I-3: explicit DMA_NORMAL (non-circular)
+    // Dead CPU = DMA stops = motors stop. Never DMA_CIRCULAR.
+    // Stream/channel assignments resolved at board bringup from pinmap.h
+    // TODO: fill DMA stream instances per target
+    for (int i = 0; i < NUM_MOTORS; i++) {
+        hDmaMotor[i].Init.Direction = DMA_MEMORY_TO_PERIPH;
+        hDmaMotor[i].Init.PeriphInc = DMA_PINC_DISABLE;
+        hDmaMotor[i].Init.MemInc = DMA_MINC_ENABLE;
+        hDmaMotor[i].Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
+        hDmaMotor[i].Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
+        hDmaMotor[i].Init.Mode = DMA_NORMAL;  // I-3: explicit, never circular
+        hDmaMotor[i].Init.Priority = DMA_PRIORITY_HIGH;
+        hDmaMotor[i].Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+    }
 
     // Enable motor output (TIM1/TIM8 have break feature — must enable MOE)
     __HAL_TIM_MOE_ENABLE(&hMotorTimer);
