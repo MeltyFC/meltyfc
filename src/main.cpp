@@ -10,10 +10,21 @@
 #ifdef ARDUINO
 #include <Arduino.h>
 #else
+// Select HAL header by chip family — one per target, never mixed
+#if defined(STM32F4xx)
 #include "stm32f4xx_hal.h"
+#elif defined(STM32F7xx)
+#include "stm32f7xx_hal.h"
+#elif defined(STM32H7xx)
+#include "stm32h7xx_hal.h"
+#else
+#error "Unknown chip family — add HAL include for your target"
+#endif
 #endif
 
-#ifdef TARGET_CRUX_F405HD
+// Every target provides target.h (via -I targets/<board>/)
+#if defined(TARGET_CRUX_F405HD) || defined(TARGET_AIKON_F7MINI) || \
+    defined(TARGET_JHEMCU_GHF745) || defined(TARGET_MICOAIR_H743V2)
 #include "target.h"
 #endif
 

@@ -15,8 +15,13 @@
 
 ## Architectural (need Trip input)
 
-- [ ] **S4: SPI vs I2C for H3LIS331** — SPI deletes bus budget problem (~5µs vs ~450µs). Requires 3 extra wires per sensor. Decision before soldering.
+- [x] **S4: SPI vs I2C for H3LIS331** — DECIDED: I2C. CruxF405HD has no external SPI pads available (SPI1=gyro, SPI2=flash, no breakout). I2C on PB10/PB11 shared bus with baro. ~450µs per 2-sensor read = ~2kHz loop. Workable. (2026-07-08, Trip+Nexus)
 - [ ] **Creep 3D mode** — full reverse requires Bluejay 3D config. v1 or fast-follow?
+
+## Post-First-Spin (future firmware)
+
+- [ ] **Dead motor detection + translation remap** — Detect motor loss via bidir DShot eRPM dropout (eRPM=0 for >N cycles). Remap translation windows to surviving motors (3→2 motor map: 120° spacing → 180°). Accept reduced translation authority (~33% duty vs 50%). Mass imbalance from dead pod creates slight wobble — heading engine may need center-of-rotation offset. No hardware changes needed. (2026-07-08, Trip request)
+- [ ] **Lost wheel detection via slip monitoring** — Detects PU wheel loss/delamination (motor healthy but no traction). Compare per-motor eRPM against expected eRPM from bot RPM (H3LIS) × gear ratio. If slip >90% sustained for >100ms → flag motor as lost-wheel, kill output, remap to 2-motor translation. Recovery logic: after ~5s, re-engage at low throttle, re-check slip. If grips → restore 3-motor. If still slipping → kill permanently for remainder of match. Same remap infrastructure as dead motor detection. (2026-07-08, Trip request)
 
 ## Completed (this session)
 
