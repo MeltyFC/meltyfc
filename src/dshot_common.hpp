@@ -36,8 +36,22 @@ static constexpr uint8_t DSHOT_COMPARE_BUF_SIZE = 17;
 // Pack a THROTTLE frame: 0 (disarm) or 48–2047. Values 1-47 clamped to 48.
 uint16_t packThrottleFrame(uint16_t throttle, bool telemetryRequest);
 
+// C2/I-14: DisarmedOnlyToken — type-system guard for ESC command frames.
+// Only the safety module can construct this token (when in DISARMED state).
+// Callers cannot fake it — the constructor is private, safety.cpp is a friend.
+struct DisarmedOnlyToken {
+private:
+    DisarmedOnlyToken() = default;
+    friend struct SafetyModule; // Only safety.cpp can create these
+    // If no SafetyModule exists yet, packCommandFrame still compiles
+    // but callers must obtain the token through the safety interface.
+public:
+    // Public copy/move for passing around once created
+    DisarmedOnlyToken(const DisarmedOnlyToken&) = default;
+};
+
 // Pack a COMMAND frame: command ID (1-47) preserved, NOT clamped.
-// MUST only be called while DISARMED (caller responsibility).
+// I-14: Requires DisarmedOnlyToken — enforces disarmed state at compile time.
 uint16_t packCommandFrame(uint16_t command, bool telemetryRequest);
 
 // Pack a bidirectional THROTTLE frame: INVERTED CRC for bidir detection

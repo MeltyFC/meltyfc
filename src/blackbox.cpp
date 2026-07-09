@@ -1,3 +1,5 @@
+#include "feature_tiers.h"
+#if MELTYFC_HAS_BLACKBOX
 #include <cinttypes>
 // MeltyFC — Blackbox-Lite Implementation
 // DI-09/10/11/12 fixes: usable size precompute, sector-start erase,
@@ -105,3 +107,5 @@ int blackboxFormatRecord(const BlackboxRecord& rec, char* buf, size_t bufLen) {
 }
 
 } // namespace melty
+
+#endif // MELTYFC_HAS_BLACKBOX

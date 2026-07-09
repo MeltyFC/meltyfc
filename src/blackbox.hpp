@@ -1,7 +1,12 @@
 // MeltyFC — Blackbox-Lite
 // DI-09/10/11/12 fixes: usable size, sector-start erase, no cross-sector records, record magic.
+// C8: Tier-gated — compiled out on TIER_MIN targets (256KB flash)
 
 #pragma once
+
+#include "feature_tiers.h"
+
+#if MELTYFC_HAS_BLACKBOX
 
 #include <cstddef>
 #include <cstdint>
@@ -59,3 +64,5 @@ int blackboxFormatRecord(const BlackboxRecord& rec, char* buf, size_t bufLen);
 int blackboxFormatHeader(char* buf, size_t bufLen);
 
 } // namespace melty
+
+#endif // MELTYFC_HAS_BLACKBOX
