@@ -1,7 +1,9 @@
 // MeltyFC — BetaFPV F411 Clock Configuration
-// HSE = 8MHz (from BF config), SYSCLK = 100MHz (F411 max)
-// AHB = 100MHz, APB1 = 50MHz (max), APB2 = 100MHz
-// Timer clocks: APB1 timers = 100MHz, APB2 timers = 100MHz
+// HSE = 8MHz, SYSCLK = 96MHz (not 100 — USB requires exact 48MHz)
+// CS-1: At 100MHz no integer PLLQ yields 48MHz. F411 has no HSI48/CRS.
+// PLLM=4, PLLN=192 -> VCO 384, PLLP=4 -> 96MHz, PLLQ=8 -> USB 48.000 exact.
+// RM0383: VOS Scale1 supports up to 100MHz. 96MHz is within spec.
+// Flash: 3 wait states (>90MHz at 3.3V, RM0383 Table 6)
 
 #ifndef NATIVE_BUILD
 #ifdef STM32F4xx
@@ -17,21 +19,22 @@ void SystemClock_Config(void) {
     osc.HSEState = RCC_HSE_ON;
     osc.PLL.PLLState = RCC_PLL_ON;
     osc.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-    // PLL: 8MHz / 4 * 100 = 200MHz VCO -> /2 = 100MHz SYSCLK
-    osc.PLL.PLLM = 4;
-    osc.PLL.PLLN = 100;
-    osc.PLL.PLLP = RCC_PLLP_DIV2;  // 100MHz
-    osc.PLL.PLLQ = 4;               // 50MHz (USB needs 48, close enough with trim)
+    // PLL: 8MHz / 4 * 192 = 384MHz VCO -> /4 = 96MHz SYSCLK
+    // RM0383: VCO must be 100-432MHz. 384 is within range.
+    osc.PLL.PLLM = 4;      // VCO input = 8/4 = 2MHz (RM0383: 1-2MHz)
+    osc.PLL.PLLN = 192;    // VCO = 2*192 = 384MHz (RM0383: 100-432MHz) ✓
+    osc.PLL.PLLP = RCC_PLLP_DIV4;  // SYSCLK = 384/4 = 96MHz ✓
+    osc.PLL.PLLQ = 8;      // USB = 384/8 = 48.000MHz exact ✓
     HAL_RCC_OscConfig(&osc);
 
     RCC_ClkInitTypeDef clk = {};
     clk.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK |
                     RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
     clk.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-    clk.AHBCLKDivider = RCC_SYSCLK_DIV1;    // 100MHz
-    clk.APB1CLKDivider = RCC_HCLK_DIV2;     // 50MHz (timers = 100MHz)
-    clk.APB2CLKDivider = RCC_HCLK_DIV1;     // 100MHz
-    // Flash: 3 wait states at 100MHz
+    clk.AHBCLKDivider = RCC_SYSCLK_DIV1;    // 96MHz
+    clk.APB1CLKDivider = RCC_HCLK_DIV2;     // 48MHz (RM0383: max 50MHz) ✓
+    clk.APB2CLKDivider = RCC_HCLK_DIV1;     // 96MHz (RM0383: max 100MHz) ✓
+    // Flash: 3 wait states (>90MHz at 3.3V, RM0383 Table 6) ✓
     HAL_RCC_ClockConfig(&clk, FLASH_LATENCY_3);
 
     __HAL_FLASH_PREFETCH_BUFFER_ENABLE();

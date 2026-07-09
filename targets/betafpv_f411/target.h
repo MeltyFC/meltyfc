@@ -17,7 +17,7 @@ void SystemClock_Config(void);
 
 #define TARGET_NAME "BetaFPV_F411"
 #define TARGET_MCU "STM32F411CEU6"
-#define TARGET_CLOCK_MHZ 100     // F411 max = 100MHz
+#define TARGET_CLOCK_MHZ 96      // CS-1: 96 not 100 — USB needs exact 48MHz from PLLQ
 #define TARGET_FLASH_KB 512
 #define TARGET_RAM_KB 128
 
@@ -46,4 +46,4 @@ void SystemClock_Config(void);
 // This means LED DMA and motor DMA use DIFFERENT DMA controllers
 // which avoids the stream-sharing problem that plagues F405.
 // Verify allocation on hardware.
-#define EXPECTED_TIMER_CLOCK_HZ 100000000U  // F411: APB2 timer = SYSCLK
+#define EXPECTED_TIMER_CLOCK_HZ 96000000U   // CS-1: 96MHz (APB2 prescaler=1, no x2)
