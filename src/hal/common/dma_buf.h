@@ -31,11 +31,17 @@
         while (_addr < 0x20000000U || _addr > 0x2000FFFFU) {} /* not DTCM = hang -> IWDG */ \
     } while(0)
 
-#elif defined(STM32H7xx) || defined(STM32H743xx)
+#elif defined(STM32H7xx) || defined(STM32H743xx) || defined(STM32H723xx) || defined(STM32H725xx)
     // H7: force into D2 SRAM — DMA1/DMA2 reachable, DTCM is CPU-private
-    // Single source of truth for D2 range — used by assert, MPU config, and linker
-    #define H7_D2_SRAM_BASE  0x30000000U
-    #define H7_D2_SRAM_SIZE  0x00020000U  // 128KB (D2 SRAM1 + SRAM2 on H743)
+    // D2 size varies by chip — must be defined per target in target.h/pinmap.h
+    // H743: 128KB (SRAM1 64K + SRAM2 64K + SRAM3 32K... varies by package)
+    // H723/H725: 32KB D2 SRAM
+    #ifndef H7_D2_SRAM_BASE
+        #define H7_D2_SRAM_BASE  0x30000000U  // Same across all H7
+    #endif
+    #ifndef H7_D2_SRAM_SIZE
+        #error "H7_D2_SRAM_SIZE must be defined per target (H743=0x20000, H723/H725=0x8000)"
+    #endif
     #define H7_D2_SRAM_END   (H7_D2_SRAM_BASE + H7_D2_SRAM_SIZE - 1U)
     #define DMA_BUFFER_ATTR __attribute__((section(".d2_dma")))
     #define DMA_BUFFER_ASSERT(ptr) do { \

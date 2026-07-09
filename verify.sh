@@ -22,6 +22,7 @@ declare -A TARGET_FLASH=(
     [aikon_f7mini]=524288      # 512KB
     [jhemcu_ghf745]=1048576    # 1MB
     [micoair_h743v2]=2097152   # 2MB
+    [betafpv_h725]=1048576     # 1MB
 )
 declare -A TARGET_RAM=(
     [crux_f405hd]=196608       # 192KB (usable SRAM, excluding CCM)
@@ -29,8 +30,9 @@ declare -A TARGET_RAM=(
     [aikon_f7mini]=262144      # 256KB
     [jhemcu_ghf745]=327680     # 320KB
     [micoair_h743v2]=1048576   # ~1MB (AXI+D2+D3, excludes DTCM/ITCM)
+    [betafpv_h725]=577536      # ~564KB (AXI 320K + D2 32K + D3 16K + DTCM 128K + ITCM 64K)
 )
-ALL_TARGETS=(crux_f405hd betafpv_f411 aikon_f7mini jhemcu_ghf745 micoair_h743v2)
+ALL_TARGETS=(crux_f405hd betafpv_f411 aikon_f7mini jhemcu_ghf745 micoair_h743v2 betafpv_h725)
 
 pass() { echo -e "${GREEN}PASS${NC}: $1"; }
 warn() { echo -e "${YELLOW}WARN${NC}: $1"; }

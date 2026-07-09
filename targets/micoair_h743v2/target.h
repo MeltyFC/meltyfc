@@ -23,6 +23,7 @@ void SystemClock_Config(void);
 #define TARGET_CLOCK_MHZ 400   // VOS1 @ 400MHz — safe bring-up; 480MHz (VOS0) is later experiment
 #define TARGET_FLASH_KB 2048
 #define TARGET_RAM_KB 1024     // ~1MB across domains (AXI SRAM 512KB + D2 288KB + D3 64KB + DTCM 128KB + ITCM 64KB)
+#define H7_D2_SRAM_SIZE 0x00020000U  // 128KB (H743 D2 SRAM1+SRAM2)
 
 // Feature availability on this target
 #define HAS_BIDIR_DSHOT 1

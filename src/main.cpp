@@ -25,7 +25,7 @@
 // Every target provides target.h (via -I targets/<board>/)
 #if defined(TARGET_CRUX_F405HD) || defined(TARGET_BETAFPV_F411) || \
     defined(TARGET_AIKON_F7MINI) || defined(TARGET_JHEMCU_GHF745) || \
-    defined(TARGET_MICOAIR_H743V2)
+    defined(TARGET_MICOAIR_H743V2) || defined(TARGET_BETAFPV_H725)
 #include "target.h"
 #endif
 

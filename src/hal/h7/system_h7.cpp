@@ -21,7 +21,14 @@ void meltyH7MpuInit(void) {
     mpu_init.Enable = MPU_REGION_ENABLE;
     mpu_init.Number = MPU_REGION_NUMBER0;
     mpu_init.BaseAddress = H7_D2_SRAM_BASE;   // from dma_buf.h — single source of truth
-    mpu_init.Size = MPU_REGION_SIZE_128KB;     // matches H7_D2_SRAM_SIZE
+    // MPU region size must match H7_D2_SRAM_SIZE (per-chip)
+#if H7_D2_SRAM_SIZE == 0x00020000U
+    mpu_init.Size = MPU_REGION_SIZE_128KB;     // H743
+#elif H7_D2_SRAM_SIZE == 0x00008000U
+    mpu_init.Size = MPU_REGION_SIZE_32KB;      // H723/H725
+#else
+    #error "Unknown H7_D2_SRAM_SIZE — add MPU region size mapping"
+#endif
     mpu_init.AccessPermission = MPU_REGION_FULL_ACCESS;
     mpu_init.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
     mpu_init.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
