@@ -12,6 +12,7 @@
 //   Flash: 2 wait states (VOS1, 200MHz AHB)
 
 #ifndef NATIVE_BUILD
+#ifdef STM32H7xx
 
 void SystemClock_Config(void) {
     // TODO P2: Full H743 clock tree from BF/ArduPilot reference
@@ -19,4 +20,5 @@ void SystemClock_Config(void) {
     // Blocked on hardware — stub returns with default clock (HSI)
 }
 
-#endif
+#endif // STM32H7xx
+#endif // NATIVE_BUILD

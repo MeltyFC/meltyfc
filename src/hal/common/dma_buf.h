@@ -32,11 +32,15 @@
     } while(0)
 
 #elif defined(STM32H7xx) || defined(STM32H743xx)
-    // H7: force into D2 SRAM (0x30000000-0x3001FFFF) — DMA1/DMA2 reachable
+    // H7: force into D2 SRAM — DMA1/DMA2 reachable, DTCM is CPU-private
+    // Single source of truth for D2 range — used by assert, MPU config, and linker
+    #define H7_D2_SRAM_BASE  0x30000000U
+    #define H7_D2_SRAM_SIZE  0x00020000U  // 128KB (D2 SRAM1 + SRAM2 on H743)
+    #define H7_D2_SRAM_END   (H7_D2_SRAM_BASE + H7_D2_SRAM_SIZE - 1U)
     #define DMA_BUFFER_ATTR __attribute__((section(".d2_dma")))
     #define DMA_BUFFER_ASSERT(ptr) do { \
         volatile uintptr_t _addr = (uintptr_t)(ptr); \
-        while (_addr < 0x30000000U || _addr > 0x3001FFFFU) {} /* not D2 = hang -> IWDG */ \
+        while (_addr < H7_D2_SRAM_BASE || _addr > H7_D2_SRAM_END) {} /* not D2 = hang -> IWDG */ \
     } while(0)
 
 #elif defined(NATIVE_BUILD) || defined(UNIT_TEST)

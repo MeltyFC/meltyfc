@@ -5,12 +5,14 @@
 //   3. MPU non-cacheable region over D2 SRAM for DMA coherency
 //   4. D-cache enable (with MPU region protecting DMA buffers)
 //
-// STUB — implementation BLOCKED on Step 0 hardware dump.
+// MPU/PWR/clock values are known from BF configs — NOT hardware-blocked.
+// Driver bodies (DShot, WS2812) are the hardware-gated items.
 
 #ifndef NATIVE_BUILD
 #ifdef STM32H7xx
 
 #include "stm32h7xx_hal.h"
+#include "hal/common/dma_buf.h"
 
 // MPU region setup for D2 SRAM — called before any DMA init
 // Makes the .d2_dma section non-cacheable so DMA transfers are coherent
@@ -21,8 +23,8 @@ void meltyH7MpuInit(void) {
     MPU_Region_InitTypeDef mpu_init = {};
     mpu_init.Enable = MPU_REGION_ENABLE;
     mpu_init.Number = MPU_REGION_NUMBER0;
-    mpu_init.BaseAddress = 0x30000000;          // D2 SRAM start
-    mpu_init.Size = MPU_REGION_SIZE_32KB;        // Covers .d2_dma section
+    mpu_init.BaseAddress = H7_D2_SRAM_BASE;      // from dma_buf.h — single source of truth
+    mpu_init.Size = MPU_REGION_SIZE_128KB;       // matches H7_D2_SRAM_SIZE (128KB)
     mpu_init.AccessPermission = MPU_REGION_FULL_ACCESS;
     mpu_init.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
     mpu_init.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
