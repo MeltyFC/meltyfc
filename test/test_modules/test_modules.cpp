@@ -210,14 +210,14 @@ void test_lvc_auto_detect_too_low() {
 // Finding 3: LVC fails closed when cell count unknown
 void test_lvc_update_sensor_fault() {
     LvcState state = {};
-    LvcConfig cfg = {3.3f, 3.0f, 0};              // Auto-detect
+    LvcConfig cfg = {3.3f, 3.0f, 0.05f, 0};              // Auto-detect
     LvcLevel level = lvcUpdate(state, 1.0f, cfg); // Too low to detect
     TEST_ASSERT_EQUAL(LvcLevel::SENSOR_FAULT, level);
 }
 
 void test_lvc_update_cell_count_unknown() {
     LvcState state = {};
-    LvcConfig cfg = {3.3f, 3.0f, 0}; // Auto-detect
+    LvcConfig cfg = {3.3f, 3.0f, 0.05f, 0}; // Auto-detect
     // 27V is out of range for auto-detect (>6S)
     LvcLevel level = lvcUpdate(state, 27.0f, cfg);
     TEST_ASSERT_EQUAL(LvcLevel::CELL_COUNT_UNKNOWN, level);
@@ -225,7 +225,7 @@ void test_lvc_update_cell_count_unknown() {
 
 void test_lvc_update_ok() {
     LvcState state = {};
-    LvcConfig cfg = {3.3f, 3.0f, 3};
+    LvcConfig cfg = {3.3f, 3.0f, 0.05f, 3};
     LvcLevel level = lvcUpdate(state, 11.4f, cfg);
     TEST_ASSERT_EQUAL(LvcLevel::OK, level);
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 3.8f, state.cellVoltage);
@@ -233,14 +233,14 @@ void test_lvc_update_ok() {
 
 void test_lvc_update_warn() {
     LvcState state = {};
-    LvcConfig cfg = {3.3f, 3.0f, 3};
+    LvcConfig cfg = {3.3f, 3.0f, 0.05f, 3};
     LvcLevel level = lvcUpdate(state, 9.6f, cfg); // 3.2V/cell
     TEST_ASSERT_EQUAL(LvcLevel::WARN, level);
 }
 
 void test_lvc_update_critical() {
     LvcState state = {};
-    LvcConfig cfg = {3.3f, 3.0f, 3};
+    LvcConfig cfg = {3.3f, 3.0f, 0.05f, 3};
     LvcLevel level = lvcUpdate(state, 8.7f, cfg); // 2.9V/cell
     TEST_ASSERT_EQUAL(LvcLevel::CRITICAL, level);
     TEST_ASSERT_TRUE(state.spinDownActive);
@@ -258,7 +258,7 @@ void test_lvc_spindown_ramp() {
 
 void test_lvc_auto_detect_sticks() {
     LvcState state = {};
-    LvcConfig cfg = {3.3f, 3.0f, 0}; // Auto-detect
+    LvcConfig cfg = {3.3f, 3.0f, 0.05f, 0}; // Auto-detect
 
     // First reading at 11.1V → auto-detect 3S
     lvcUpdate(state, 11.1f, cfg);

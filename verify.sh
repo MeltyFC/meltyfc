@@ -297,8 +297,10 @@ echo "--- Step 7: Symbol-floor gate ---"
 # Flip SYMBOL_GATE_ENFORCE=1 when main() calls the init functions.
 SYMBOL_GATE_ENFORCE=0
 CORE_SYMBOLS="melty_setup melty_loop"
-# Future integration symbols (uncomment when wired):
-# INTEGRATION_SYMBOLS="dshotInit ws2812Init"
+# R7-3: Future integration symbols — uncomment when wired into main().
+# The build system itself refuses a wired firmware that skipped safety init.
+# INTEGRATION_SYMBOLS="dshotInit ws2812Init vbatInit i2cRecoverAndInit"
+# SAFETY_INIT_SYMBOLS="iwdgStarted vbatValid"  # I-7 ordering: WDT + VBAT
 
 for TARGET in "${ALL_TARGETS[@]}"; do
     ELF_FILE=".pio/build/${TARGET}/firmware.elf"

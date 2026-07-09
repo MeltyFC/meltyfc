@@ -21,9 +21,10 @@ enum class LvcLevel : uint8_t {
 };
 
 struct LvcConfig {
-    float warnVolts;   // Per-cell warn threshold (V)
-    float critVolts;   // Per-cell crit threshold (V)
-    uint8_t cellCount; // 0 = auto-detect
+    float warnVolts;       // Per-cell warn threshold (V)
+    float critVolts;       // Per-cell crit threshold (V)
+    float hysteresisVolts; // R7-6: recovery hysteresis band (V/cell) — default 0.05
+    uint8_t cellCount;     // 0 = auto-detect
 };
 
 struct LvcState {

@@ -62,12 +62,21 @@ LvcLevel lvcUpdate(LvcState& state, float packVoltage, const LvcConfig& cfg) {
 
     state.cellVoltage = packVoltage / static_cast<float>(state.detectedCells);
 
+    // R7-6: Hysteresis band on recovery edge.
+    // Drop into WARN/CRITICAL at threshold. Recover only above threshold + hysteresis.
+    // Prevents LED/telemetry chatter at boundary. CRITICAL latch is independent.
+    float hyst = cfg.hysteresisVolts;
+
     if (state.cellVoltage <= cfg.critVolts) {
         state.level = LvcLevel::CRITICAL;
         state.spinDownActive = true;
     } else if (state.cellVoltage <= cfg.warnVolts) {
         state.level = LvcLevel::WARN;
         // Don't clear spinDownActive — once triggered, stays until re-arm
+    } else if (state.level == LvcLevel::WARN &&
+               state.cellVoltage < cfg.warnVolts + hyst) {
+        // In hysteresis band — stay in WARN until above warn + hysteresis
+        state.level = LvcLevel::WARN;
     } else {
         state.level = LvcLevel::OK;
     }
