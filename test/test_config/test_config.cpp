@@ -348,6 +348,23 @@ void test_line_buffer_overflow_discards() {
     TEST_ASSERT_EQUAL_STRING("a", lb.line());
 }
 
+// CO-1: Default config MUST pass its own validator.
+// One careless default edit + no validation at load = every fresh board boots
+// the exact control-reversal config validateConfig was built to reject.
+// This test pins default-set coherence forever.
+void test_defaults_pass_validation() {
+    ConfigData defaults = {};
+    ConfigValidationResult result = validateConfig(defaults);
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0, result.issueCount,
+        "Default config fails its own validator — fresh boards would boot invalid");
+    TEST_ASSERT_FALSE(result.spinMaxExceedsCap);
+    TEST_ASSERT_FALSE(result.innerGtOuter);
+    TEST_ASSERT_FALSE(result.lvcWarnBelowCrit);
+    TEST_ASSERT_FALSE(result.windowHalfTooLarge);
+    TEST_ASSERT_FALSE(result.channelCollision);
+    TEST_ASSERT_FALSE(result.numMotorsInvalid);
+}
+
 int main() {
     UNITY_BEGIN();
 
@@ -406,6 +423,9 @@ int main() {
     // B5: Line buffer
     RUN_TEST(test_line_buffer_basic);
     RUN_TEST(test_line_buffer_overflow_discards);
+
+    // CO-1: Defaults coherence — pins this forever
+    RUN_TEST(test_defaults_pass_validation);
 
     return UNITY_END();
 }
