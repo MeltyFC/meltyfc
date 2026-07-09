@@ -138,6 +138,12 @@ uint16_t gcrDecode(uint32_t gcr21bit) {
     // Layout: [start:1][gcr4:5][gcr3:5][gcr2:5][gcr1:5]
     // Total = 21 bits, produces 16 data bits
 
+    // F-03: Validate start bit (bit 20 must be 1)
+    // Rejects shifted captures that nibble-validity alone would miss
+    if (!(gcr21bit & (1u << 20))) {
+        return 0xFFFF; // Missing start bit — shifted or corrupt frame
+    }
+
     uint16_t decoded = 0;
 
     for (int i = 0; i < 4; i++) {

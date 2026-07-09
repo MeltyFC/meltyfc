@@ -150,3 +150,15 @@ is the reference implementation — it's superior to `default:` because it keeps
 - **Rule B (state machines):** See above.
 - **Rule C (error returns):** Every Wire.* and IFlashStorage call's status feeds a
   health/validity flag — never a bare statement. verify.sh grep-warns on violations.
+
+## Invariants I-13 through I-19 (from external audit + final work order)
+
+| ID | Rule | Enforcement |
+|----|------|-------------|
+| I-13 | IWDG reload at END of control loop only | Code pattern (wiring checklist) |
+| I-14 | ESC-visible frames require ArmState/token | Type-system guard (F-06, deferred to integration) |
+| I-15 | Control math fails closed on nonfinite input/output | Negated-positive comparisons (!(x > 0)) in heading/slip |
+| I-16 | Per-target timer clock unit-pinned + scope-proven | EXPECTED_TIMER_CLOCK_HZ in all targets + assert in DShot init |
+| I-17 | Telemetry framing + EDT discrimination precede eRPM | GCR start-bit validation (F-03) + EDT type check |
+| I-18 | Verification gates fail closed on missing artifacts/failed tools | verify.sh: no || true on tools, missing map = fail |
+| I-19 | Coverage reported split: native/core vs target/HAL | Phase report format requirement |

@@ -170,8 +170,8 @@ void test_compare_buffer_all_ones() {
 void test_gcr_decode_valid() {
     // Encode nibbles 0x0, 0x1, 0x2, 0x3 via GCR
     // GCR for 0x0 = 11001 (25), 0x1 = 11011 (27), 0x2 = 10010 (18), 0x3 = 10011 (19)
-    // Frame: [nibble0=25][nibble1=27][nibble2=18][nibble3=19] = least significant first
-    uint32_t gcr = (25 << 0) | (27 << 5) | (18 << 10) | (19 << 15);
+    // Frame: [start:1][nibble3:5][nibble2:5][nibble1:5][nibble0:5] — F-03: start bit required
+    uint32_t gcr = (1u << 20) | (25 << 0) | (27 << 5) | (18 << 10) | (19 << 15);
     uint16_t decoded = gcrDecode(gcr);
     TEST_ASSERT_NOT_EQUAL_HEX16(0xFFFF, decoded);
 
