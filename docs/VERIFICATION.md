@@ -131,3 +131,22 @@ known gaps / deferred: <list or none>
 - When a hardware gate result contradicts a sim assumption (e.g., real sensor noise
   differs), update the sim model in the same PR that consumes the finding — the sim
   only stays authoritative if it tracks reality.
+
+## R8 State-Machine Rule (codified from Round 8 Class B sweep)
+
+Every state-machine switch must either:
+1. Cover all enum values with -Wswitch live (preferred — compiler catches
+   missing cases), OR
+2. Fall through to an explicit safe-state return (ERROR / reject / default value)
+
+No bare fall-off-the-end. The arm state machine's pattern (fall past switch → ERROR)
+is the reference implementation — it's superior to `default:` because it keeps
+-Wswitch enum-coverage warnings alive.
+
+## R8 Integration Rules (from Round 8 class sweeps)
+
+- **Rule A (config indexing):** Channel indexing, when written, goes through
+  the clamped config value only — never a raw CRSF field or arithmetic derivative.
+- **Rule B (state machines):** See above.
+- **Rule C (error returns):** Every Wire.* and IFlashStorage call's status feeds a
+  health/validity flag — never a bare statement. verify.sh grep-warns on violations.

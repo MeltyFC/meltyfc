@@ -297,6 +297,11 @@ echo "--- Step 7: Symbol-floor gate ---"
 # Flip SYMBOL_GATE_ENFORCE=1 when main() calls the init functions.
 SYMBOL_GATE_ENFORCE=0
 CORE_SYMBOLS="melty_setup melty_loop"
+# R8 Class C gate: warn on bare-statement Wire/storage calls (integration rule C)
+BARE_WIRE=$(grep -rn 'Wire\.endTransmission()\s*;' src/ 2>/dev/null | grep -v '//' || true)
+if [ -n "$BARE_WIRE" ]; then
+    warn "R8 Class C: bare Wire.endTransmission() — return value must feed health flag"
+fi
 # R7-3: Future integration symbols — uncomment when wired into main().
 # The build system itself refuses a wired firmware that skipped safety init.
 # INTEGRATION_SYMBOLS="dshotInit ws2812Init vbatInit i2cRecoverAndInit"
