@@ -126,7 +126,11 @@ void dshotInit() {
     }
 
     // Configure DMA with DMAMUX routing
-    // H7 DMAMUX: any DMA stream can serve any peripheral request
+    // ES0392 §2.5.4: Clear DMAMUX overrun flags BEFORE configuring channels.
+    // Wrong DMA request can be routed if CxCR write coincides with sync event.
+    // The clear-before-configure pattern prevents the race.
+    DMAMUX1_ChannelStatus->CFR = 0xFFFFFFFF;  // Clear all overrun flags
+
     for (int i = 0; i < NUM_MOTORS; i++) {
         hDmaMotor[i].Instance = DMA1_Stream0 + i;  // Use DMA1 streams 0-3
         hDmaMotor[i].Init.Request = dmamuxRequest[i];

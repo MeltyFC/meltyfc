@@ -43,6 +43,11 @@ static constexpr I2cRecoveryConfig I2C_RECOVERY_DEFAULT = {
 //      This clears the F4 analog-filter BUSY lockup erratum (ES0182)
 //      where the MASTER wedges and re-init alone doesn't clear it.
 //      Three lines, ST's own documented workaround.
+//   4.5: ES0182 §2.9.6 / ES0392 §2.19.4: Clear spurious BERR flag
+//      The I2C peripheral can set BERR incorrectly in master mode.
+//      Do NOT abort transfer on BERR alone — clear the flag and continue.
+//      After RCC reset (step 4), clear SR1.BERR (F4) or ISR.BERR (F7/H7)
+//      before re-init.
 //   5. Reconfigure pins for I2C alternate function
 //   6. Wire.begin() / HAL_I2C_Init() with timeout
 //   7. Probe expected addresses (H3LIS 0x18, 0x19)

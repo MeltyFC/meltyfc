@@ -198,6 +198,10 @@ void dshotInit() {
     }
 
     // Enable motor output (TIM1/TIM8 have break feature — must enable MOE)
+    // ES0182 §2.6.1: PWM may re-enable despite system break in automatic
+    // output enable mode. Workaround: use software break management (OSSI bit)
+    // or disable break input entirely if not using external break.
+    // MeltyFC: break input not connected — disable it to avoid erratum.
     __HAL_TIM_MOE_ENABLE(&hMotorTimer);
 }
 
