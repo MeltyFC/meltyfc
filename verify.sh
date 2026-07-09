@@ -275,6 +275,41 @@ done
 pass "Rocket invariants (I-1, I-2) + pinmap warnings"
 
 # ----------------------------------------------------------------
+# 7. Symbol-floor gate (core wiring check)
+# ----------------------------------------------------------------
+echo ""
+echo "--- Step 7: Symbol-floor gate ---"
+# When integration wiring lands, these core symbols MUST be present in every target ELF.
+# During pre-integration skeleton phase, this is informational only (warn, not fail).
+# Flip SYMBOL_GATE_ENFORCE=1 when main() calls the init functions.
+SYMBOL_GATE_ENFORCE=0
+CORE_SYMBOLS="melty_setup melty_loop"
+# Future integration symbols (uncomment when wired):
+# INTEGRATION_SYMBOLS="dshotInit ws2812Init"
+
+for TARGET in "${ALL_TARGETS[@]}"; do
+    ELF_FILE=".pio/build/${TARGET}/firmware.elf"
+    if [ -f "$ELF_FILE" ]; then
+        MISSING=""
+        for SYM in $CORE_SYMBOLS; do
+            if ! arm-none-eabi-nm "$ELF_FILE" 2>/dev/null | grep -q " T.*${SYM}"; then
+                MISSING="${MISSING} ${SYM}"
+            fi
+        done
+        if [ -n "$MISSING" ]; then
+            if [ "$SYMBOL_GATE_ENFORCE" = "1" ]; then
+                fail "${TARGET}: Missing core symbols:${MISSING}"
+            else
+                warn "${TARGET}: Missing core symbols (pre-integration):${MISSING}"
+            fi
+        else
+            echo "  ${TARGET}: core symbols present"
+        fi
+    fi
+done
+pass "Symbol-floor gate (pre-integration — informational)"
+
+# ----------------------------------------------------------------
 # Summary
 # ----------------------------------------------------------------
 echo ""

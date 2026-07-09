@@ -16,10 +16,26 @@
 
 **Native tests:** 245/245 PASSED, ASan/UBSan clean
 
-**DMA section note:** Sections are defined in linker scripts and present in map files.
-Content is empty because DMA buffer symbols are `static` in driver files that aren't
-called from main() yet. Buffers will populate when drivers are wired at integration.
-The I-11 runtime asserts remain as the second check.
+**Pre-integration skeletons:** These builds validate toolchain, linker scripts, and
+map placement only. DMA buffer symbols are `static` in driver files not yet called
+from main() — sections are defined but empty. Buffers will populate at integration.
+Flash/RAM percentages will grow significantly when real driver code is linked.
+
+---
+
+## Map-Gate Teeth Demo
+
+Demonstrated that removing `.dtcm_dma` from the F7 linker script causes the section
+to disappear from the map file entirely. verify.sh catches this:
+
+```
+=== TEETH DEMO: .dtcm_dma removed from F7 linker script ===
+Section NOT found in map — gate would FAIL
+FAIL: aikon_f7mini: .dtcm_dma section MISSING from map AND linker script (I-11a)
+=== Restored ===
+```
+
+The gate has teeth. A collapsed, renamed, or dropped section cannot pass silently.
 
 ---
 

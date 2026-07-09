@@ -30,6 +30,7 @@ static uint8_t pixelRgb[MAX_PX * 3];
 static uint16_t numPx = 0;
 static volatile bool busy = false;
 static TIM_HandleTypeDef hTim;
+static DMA_HandleTypeDef hDmaLed;
 
 void ws2812Init(uint16_t maxPixels) {
     DMA_BUFFER_ASSERT(compareBuf);
@@ -59,6 +60,11 @@ void ws2812Init(uint16_t maxPixels) {
     oc.OCPolarity = TIM_OCPOLARITY_HIGH;
     oc.OCFastMode = TIM_OCFAST_DISABLE;
     HAL_TIM_PWM_ConfigChannel(&hTim, &oc, TIM_CHANNEL_1);
+
+    // I-3: explicit DMA_NORMAL — dead CPU = DMA stops = LEDs freeze
+    hDmaLed.Init.Mode = DMA_NORMAL;  // I-3: never circular
+    hDmaLed.Init.Direction = DMA_MEMORY_TO_PERIPH;
+    hDmaLed.Init.Priority = DMA_PRIORITY_MEDIUM;
 }
 
 void ws2812SetPixel(uint16_t index, uint8_t r, uint8_t g, uint8_t b) {
