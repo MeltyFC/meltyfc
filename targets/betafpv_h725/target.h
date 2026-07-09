@@ -17,7 +17,7 @@ void SystemClock_Config(void);
 
 #define TARGET_NAME "BetaFPV_H725"
 #define TARGET_MCU "STM32H725RGV6"
-#define TARGET_CLOCK_MHZ 520     // VOS1 conservative; 550MHz (VOS0) is later experiment
+#define TARGET_CLOCK_MHZ 520     // VOS0 standard max (RM0468); VOS1 caps at 400MHz
 #define TARGET_FLASH_KB 1024
 #define TARGET_RAM_KB 564        // AXI 320KB + D2 32KB + D3 16KB + DTCM 128KB + ITCM 64KB
 
@@ -42,6 +42,6 @@ void SystemClock_Config(void);
 #define MELTYFC_TIER MELTYFC_TIER_FULL
 
 // B1: H7_PWR_SUPPLY is defined in pinmap.h (REQUIRED, no default)
-// B2: Clock at 520MHz VOS1 (conservative). 550MHz VOS0 = later.
+// B2: Clock at 520MHz VOS0 (standard max). 550MHz needs VOS0 boost.
 // B3: D2 SRAM = 32KB (not 128KB like H743!)
 #define EXPECTED_TIMER_CLOCK_HZ 260000000U  // H725: APB2 timer = AHB = SYSCLK/2

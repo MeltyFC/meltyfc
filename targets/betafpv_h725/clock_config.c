@@ -1,7 +1,16 @@
 // MeltyFC — BetaFPV H725 Clock + PWR Configuration
-// HSE = 8MHz, SYSCLK = 520MHz (VOS1 conservative — 550MHz VOS0 is later)
+// HSE = 8MHz, SYSCLK = 520MHz at VOS0 (standard max for H723/H725)
 // B1: PWR supply = SMPS (board-specific, from pinmap.h provenance)
-// B2: Conservative bring-up — max safe clock for VOS1
+//
+// RM0468 voltage scaling:
+//   VOS0: up to 520MHz (standard), 550MHz (boost) — H723/H725 specific
+//   VOS1: up to 400MHz — same as H743
+//   VOS2: up to 300MHz
+//   VOS3: up to 170MHz
+//
+// Cross-ref audit: previous config claimed VOS1 at 520MHz — that's 30% over
+// the VOS1 400MHz limit. Fixed to VOS0 which is the correct scale for 520MHz.
+// Flash latency was already correct for VOS0 (consistent by accident).
 
 #ifndef NATIVE_BUILD
 #ifdef STM32H7xx
@@ -10,23 +19,26 @@
 #include "target.h"
 
 void SystemClock_Config(void) {
-    // B1: CRITICAL — PWR supply config. H725 boards VARY.
-    // This board uses SMPS. Wrong = chip never reaches main().
     // B1: PWR supply from board design
-    // BetaFPV H725 uses SMPS, but the SMPS HAL constants require the H725 CMSIS
-    // device header (not available when building against nucleo_h743zi).
-    // When a proper H725 PIO board exists: HAL_PWREx_ConfigSupply(PWR_SMPS_1V8_SUPPLIES_LDO);
-    // For now: LDO fallback (safe — board will boot but SMPS unused).
-    // HARDWARE-GATED: verify correct supply config on first flash.
 #if defined(SMPS) && defined(H7_PWR_IS_SMPS) && H7_PWR_IS_SMPS
-    HAL_PWREx_ConfigSupply(PWR_SMPS_1V8_SUPPLIES_LDO);  // SMPS board — needs H725 CMSIS
+    HAL_PWREx_ConfigSupply(PWR_SMPS_1V8_SUPPLIES_LDO);
 #else
-    HAL_PWREx_ConfigSupply(PWR_LDO_SUPPLY);              // LDO fallback for cross-compile
+    HAL_PWREx_ConfigSupply(PWR_LDO_SUPPLY);  // LDO fallback for cross-compile
 #endif
 
-    // B2: VOS1 for 520MHz (conservative). VOS0 needed for 550MHz.
-    __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
-    while (!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) {}
+    // VOS0 for 520MHz — REQUIRED (VOS1 caps at 400MHz per RM0468)
+    __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE0);
+
+    // I-6: Bounded wait for voltage scaling ready
+    {
+        uint32_t timeout = 10000;
+        while (!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) {
+            if (--timeout == 0) {
+                // VOS not ready — clock config will fail, I-12 catches it
+                return;
+            }
+        }
+    }
 
     // HSE oscillator + PLL
     RCC_OscInitTypeDef osc = {};
@@ -57,7 +69,7 @@ void SystemClock_Config(void) {
     clk.APB2CLKDivider = RCC_APB2_DIV2;    // 130MHz
     clk.APB3CLKDivider = RCC_APB3_DIV2;
     clk.APB4CLKDivider = RCC_APB4_DIV2;
-    // Flash: 3 wait states at VOS1/260MHz AHB (from datasheet Table 17)
+    // Flash: 3 wait states at VOS0/260MHz AHB (RM0468 Table 16)
     HAL_RCC_ClockConfig(&clk, FLASH_LATENCY_3);
 }
 
