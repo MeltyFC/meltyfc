@@ -12,10 +12,10 @@
 void SystemClock_Config(void) {
     // CRITICAL: PWR supply configuration — must be first
     // H743 = LDO only. SMPS config = chip never reaches main()
-    HAL_PWREx_ConfigSupply(H743_PWR_SUPPLY);  // PWR_LDO_SUPPLY from pinmap.h
+    HAL_PWREx_ConfigSupply(PWR_LDO_SUPPLY);  // H7_PWR_IS_LDO from pinmap.h
 
     // Voltage scaling: VOS1 for 400MHz operation
-    __HAL_PWR_VOLTAGESCALING_CONFIG(H743_VOLTAGE_SCALE);
+    __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
     while (!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) {}
 
     // HSE oscillator enable (8MHz crystal from BF config)

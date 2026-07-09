@@ -28,6 +28,37 @@ family defines.
 | F7 | Fixed stream+channel table | Same as F4, different assignments |
 | H7 | DMAMUX (programmable) | Small assignment layer in hal/h7/, much more flexible |
 
+## F411 Timer/DMA Allocation (Tier A, spec A3)
+
+The F411 has fewer timers and DMA streams than the F405. The 4-motor +
+WS2812 + bidirectional DShot allocation must be solved per-board.
+
+**BetaFPV F411 allocation:**
+
+| Peripheral | Timer | Channel | DMA | Notes |
+|------------|-------|---------|-----|-------|
+| Motor 1 | TIM3 | CH1 (PB4) | DMA1 | DMA1 streams for TIM3/4 |
+| Motor 2 | TIM3 | CH2 (PB5) | DMA1 | |
+| Motor 3 | TIM4 | CH1 (PB6) | DMA1 | |
+| Motor 4 | TIM4 | CH2 (PB7) | DMA1 | |
+| WS2812 LED | TIM1 | CH1 (PA8) | DMA2 | DMA2 needed for TIM1 |
+| Bidir telem | (shared) | IC mode | (shared) | Reuses motor timer IC |
+
+**Key differences from F405:**
+- No TIM8 on F411 — motors split across TIM3+TIM4 (2 channels each)
+- Motor DMA on DMA1, LED DMA on DMA2 — different controllers, avoids
+  the DMA stream sharing conflicts that plague some F405 boards
+- Fewer total DMA streams — stream allocation is tighter
+- F411 max clock is 100MHz (vs 168MHz on F405) — timer tick resolution
+  is lower, DShot300 bit timing has fewer ticks per bit
+- No CCM on F411 — all SRAM is DMA-accessible (simpler than F405)
+
+**F411 DShot300 timing at 100MHz:**
+  Bit period = 100MHz / 300kHz = 333 ticks (vs 280 @84MHz on F405)
+  Bit 1 high = 250 ticks (75%)
+  Bit 0 high = 125 ticks (37.5%)
+  (More resolution than F405 — this is actually favorable)
+
 ## I2C Peripheral
 
 | Family | IP | Configuration |

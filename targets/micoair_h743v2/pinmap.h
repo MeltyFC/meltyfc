@@ -21,8 +21,7 @@
 // H743 is a legacy H7 device without SMPS — wrong setting = chip never boots.
 // Initial voltage scale: PWR_REGULATOR_VOLTAGE_SCALE1 (SystemClock may set VOS0).
 // ============================================================================
-#define H743_PWR_SUPPLY PWR_LDO_SUPPLY     // BF_CONFIG_DERIVED — verify on live dump at arrival
-#define H743_VOLTAGE_SCALE PWR_REGULATOR_VOLTAGE_SCALE1
+#define H7_PWR_IS_LDO 1  // BF_CONFIG_DERIVED — H743 is LDO-only (no SMPS)
 
 // ============================================================================
 // BF_CONFIG_DERIVED PIN ASSIGNMENTS — VERIFY ON LIVE DUMP AT ARRIVAL

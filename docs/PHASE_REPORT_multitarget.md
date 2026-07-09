@@ -1,7 +1,7 @@
-# MeltyFC Phase Report — Multi-Target Expansion
+# MeltyFC Phase Report — Multi-Target Expansion + Phase 2 Tiers A/B
 ## Date: 2026-07-09
-## Rounds: 5, 6, 6-closeout
-## verify.sh: GREEN on all 4 targets on Pi
+## Rounds: 5, 6, 6-closeout, Phase 2 riders, Tier A, Tier B
+## verify.sh: GREEN on all 6 targets on Pi
 
 ---
 
@@ -13,6 +13,8 @@
 | aikon_f7mini (F722) | SUCCESS | 3,500 / 524,288 (0%) | 1,600 / 262,144 (0%) | .dtcm_dma: defined, empty (stubs) |
 | jhemcu_ghf745 (F745) | SUCCESS | 3,476 / 1,048,576 (0%) | 1,600 / 327,680 (0%) | .dtcm_dma: defined, empty (stubs) |
 | micoair_h743v2 (H743) | SUCCESS | 5,448 / 2,097,152 (0%) | 1,600 / 1,048,576 (0%) | .d2_dma: defined, empty (stubs) |
+| betafpv_f411 (F411) | SUCCESS | ~1,100 / 524,288 (0%) | ~1,600 / 131,072 (1%) | N/A (no CCM on F411) |
+| betafpv_h725 (H725) | SUCCESS | ~5,400 / 1,048,576 (0%) | ~1,600 / 577,536 (0%) | .d2_dma: defined, empty (stubs) |
 
 **Native tests:** 245/245 PASSED, ASan/UBSan clean
 
@@ -100,6 +102,38 @@ Formally accepted by reviewer. Single-buffer + busy-check provides correctness
 for all pre-POV use cases. Hardware double-buffering deferred to P10 (POV display)
 when hardware is available for buffer-swap timing validation. Written rationale
 in PORTING.md.
+
+---
+
+## Phase 2 Tier A — F411 (complete)
+
+- Feature tier system (MELTYFC_TIER_FULL/STD/MIN) with safety-never-tiered grep gate
+- BetaFPV F411 target: STM32F411CE, 512KB, TIER_STD
+- Timer/DMA allocation documented in PORTING.md (A3)
+
+### F401 — DEFERRED (explicit decision, not omission)
+
+The F401CC (256KB/64KB) was listed in the Tier A spec scope. It is deliberately
+deferred, not forgotten. Rationale:
+1. F401 boards are legacy — almost all current whoop AIOs use F411 or H7.
+2. The MELTYFC_TIER_MIN tier exists and is architecturally ready (256KB profile,
+   POV+blackbox compiled out), but no modern consumer board justifies the target work.
+3. If a specific F401 board is identified as worth supporting, adding it is
+   near-free: same F4 family HAL, TIER_MIN flag, custom budget in verify.sh.
+4. Decision to defer is Trip's — revisit if a community builder requests it.
+
+## Phase 2 Tier B — H725 (complete)
+
+- BetaFPV H725 target: STM32H725RG, 1MB, TIER_FULL
+- H7_PWR_IS_SMPS/H7_PWR_IS_LDO unified enforcement (#error if neither defined)
+- D2 SRAM per-chip (32KB on H725 vs 128KB on H743)
+- Clock at 520MHz VOS1 (conservative; 550MHz VOS0 later)
+- SMPS HAL constants require H725 CMSIS headers — LDO fallback for cross-compile
+
+## Phase 2 Tier C — AT32F435 (parked)
+
+GO criteria not met: F4/F7/H7 families not yet hardware-validated.
+Will revisit after Step 0 dumps confirm existing targets.
 
 ---
 

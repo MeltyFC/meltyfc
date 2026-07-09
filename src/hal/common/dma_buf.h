@@ -2,10 +2,13 @@
 // Each chip family has different rules for where DMA buffers can live:
 //   F4: anywhere EXCEPT CCM (0x10000000) — invariant I-11
 //   F7: DTCM only (0x20000000-0x2000FFFF) — invariant I-11a
-//   H7: D2 SRAM only (0x30000000-0x3001FFFF) — invariant I-11b
+//   H7: D2 SRAM only — size varies by chip (I-11b):
+//       H743: 128KB (0x30000000-0x3001FFFF)
+//       H723/H725: 32KB (0x30000000-0x30007FFF)
+//       H7_D2_SRAM_SIZE MUST be defined per target (-D flag or target.h)
 //
-// This header provides both the section attributes and assert macros.
-// Self-contained — no dependency on target pinmap.h.
+// This header provides section attributes, assert macros, and #error
+// gates for required per-chip constants. Self-contained.
 
 #pragma once
 
@@ -41,6 +44,13 @@
     #endif
     #ifndef H7_D2_SRAM_SIZE
         #error "H7_D2_SRAM_SIZE must be defined per target (H743=0x20000, H723/H725=0x8000)"
+    #endif
+    // B1: PWR supply — every H7 target must declare its power source.
+    // H7_PWR_IS_SMPS=1 for SMPS boards, 0 or undefined for LDO-only.
+    // clock_config.c uses this to call the correct HAL_PWREx_ConfigSupply().
+    // No default — a future H7 target forgetting this gets a build error.
+    #if !defined(H7_PWR_IS_SMPS) && !defined(H7_PWR_IS_LDO)
+        #error "H7 target must define H7_PWR_IS_SMPS=1 (SMPS board) or H7_PWR_IS_LDO=1 (LDO-only)"
     #endif
     #define H7_D2_SRAM_END   (H7_D2_SRAM_BASE + H7_D2_SRAM_SIZE - 1U)
     #define DMA_BUFFER_ATTR __attribute__((section(".d2_dma")))
