@@ -160,6 +160,25 @@ void loop() {
 int main(void) {
     HAL_Init();
     SystemClock_Config(); // Provided by target board bindings
+
+    // I-12: Clock assert — refuse to arm if clock is wrong
+    // Mismatch = clock config failed or HSE didn't start
+    #if defined(TARGET_CLOCK_MHZ)
+    {
+        uint32_t expectedHz = TARGET_CLOCK_MHZ * 1000000UL;
+        uint32_t tolerance  = expectedHz / 20; // 5% tolerance
+        if (SystemCoreClock < (expectedHz - tolerance) ||
+            SystemCoreClock > (expectedHz + tolerance)) {
+            // Clock mismatch — blink error code, do NOT proceed
+            // Motors will never arm (melty_setup not called)
+            while (1) {
+                // TODO: ERROR blink code (fast red flash)
+                // IWDG will reset eventually if enabled
+            }
+        }
+    }
+    #endif
+
     melty_setup();
     while (1) {
         melty_loop();
