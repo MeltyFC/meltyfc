@@ -1,21 +1,43 @@
 // MeltyFC — CruxF405HD Clock Configuration
-// STM32F405 @ 168MHz with 8MHz HSE
-// TODO: Derive from Step 0 BF dump + STM32CubeMX
+// HSE = 8MHz, SYSCLK = 168MHz, AHB = 168MHz, APB1 = 42MHz, APB2 = 84MHz
+// Derived from RM0090 clock tree + BF unified config (HSE_VALUE=8000000)
+// [2026-07-09] Cross-ref audit: was placeholder HSI — fixed to real PLL config
+
+#ifndef NATIVE_BUILD
+#ifdef STM32F4xx
 
 #include "stm32f4xx_hal.h"
 
 void SystemClock_Config(void) {
-    // Placeholder — configures HSI at default speed until real clock tree
-    // is derived from the BF dump. The real config will set:
-    //   HSE 8MHz → PLL → SYSCLK 168MHz
-    //   AHB = 168MHz, APB1 = 42MHz, APB2 = 84MHz
-    //
-    // For now, HAL_Init() already sets up HSI at 16MHz which is enough
-    // for the target build to link and verify module compilation.
-
-    // Enable power controller clock
     __HAL_RCC_PWR_CLK_ENABLE();
+    __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
-    // Configure flash latency for 16MHz HSI (0 wait states)
-    __HAL_FLASH_SET_LATENCY(FLASH_LATENCY_0);
+    // HSE oscillator + PLL
+    RCC_OscInitTypeDef osc = {};
+    osc.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+    osc.HSEState = RCC_HSE_ON;
+    osc.PLL.PLLState = RCC_PLL_ON;
+    osc.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+    // PLL: 8MHz / 8 * 336 = 336MHz VCO -> /2 = 168MHz SYSCLK
+    osc.PLL.PLLM = 8;
+    osc.PLL.PLLN = 336;
+    osc.PLL.PLLP = RCC_PLLP_DIV2;  // 168MHz
+    osc.PLL.PLLQ = 7;               // 48MHz for USB
+    HAL_RCC_OscConfig(&osc);
+
+    // Bus clocks
+    RCC_ClkInitTypeDef clk = {};
+    clk.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK |
+                    RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+    clk.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+    clk.AHBCLKDivider = RCC_SYSCLK_DIV1;    // 168MHz
+    clk.APB1CLKDivider = RCC_HCLK_DIV4;     // 42MHz (timers = 84MHz)
+    clk.APB2CLKDivider = RCC_HCLK_DIV2;     // 84MHz (timers = 168MHz)
+    // Flash: 5 wait states at 168MHz/3.3V (RM0090 Table 10)
+    HAL_RCC_ClockConfig(&clk, FLASH_LATENCY_5);
+
+    __HAL_FLASH_PREFETCH_BUFFER_ENABLE();
 }
+
+#endif // STM32F4xx
+#endif // NATIVE_BUILD
