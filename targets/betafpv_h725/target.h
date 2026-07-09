@@ -5,6 +5,7 @@
 #pragma once
 
 #include "pinmap.h"
+#define MELTYFC_TIER MELTYFC_TIER_FULL
 #include "feature_tiers.h"
 
 #ifdef __cplusplus
@@ -39,7 +40,6 @@ void SystemClock_Config(void);
 #define DSHOT_BIDIR 1
 
 // Feature tier: FULL (1MB flash)
-#define MELTYFC_TIER MELTYFC_TIER_FULL
 
 // B1: H7_PWR_SUPPLY is defined in pinmap.h (REQUIRED, no default)
 // B2: Clock at 520MHz VOS0 (standard max). 550MHz needs VOS0 boost.

@@ -1,3 +1,4 @@
+#include <cinttypes>
 // MeltyFC — Hit Logger Implementation
 
 #include "hitlog.hpp"
@@ -50,7 +51,7 @@ int hitLogFormat(const HitLogger& log, char* buf, size_t bufLen) {
     const HitRecord* latest = hitLogLatest(log);
     if (latest) {
         float rpm = latest->omegaAtHit * 60.0f / 6.2831853f;
-        n = snprintf(buf + written, bufLen - written, "Last: %.1fg @ %.0f RPM (t=%ums)\r\n",
+        n = snprintf(buf + written, bufLen - written, "Last: %.1fg @ %.0f RPM (t=%" PRIu32 "ms)\r\n",
                      (double)latest->peakG, (double)rpm, latest->timestampMs);
         if (n > 0)
             written += n;

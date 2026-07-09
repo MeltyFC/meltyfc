@@ -5,6 +5,7 @@
 #pragma once
 
 #include "pinmap.h"
+#define MELTYFC_TIER MELTYFC_TIER_STD
 #include "feature_tiers.h"
 
 #ifdef __cplusplus
@@ -36,7 +37,6 @@ void SystemClock_Config(void);
 #define DSHOT_BIDIR 1
 
 // Feature tier: STD (512KB flash — POV fonts capped, blackbox reduced)
-#define MELTYFC_TIER MELTYFC_TIER_STD
 
 // A3 NOTE: F411 timer/DMA constraints
 // F411 has 5 timers with DMA: TIM1, TIM2, TIM3, TIM4, TIM5

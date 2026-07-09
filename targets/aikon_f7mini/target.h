@@ -6,6 +6,7 @@
 #pragma once
 
 #include "pinmap.h"
+#define MELTYFC_TIER MELTYFC_TIER_STD
 #include "feature_tiers.h"
 
 // Clock configuration — provided by target, called from main
@@ -44,5 +45,4 @@ void SystemClock_Config(void);
 // F7 cache note: L1 I/D caches present. DMA buffers placed in DTCM
 // (never cached, DMA-accessible via AHBS) — no cache-maintenance needed.
 // See ASSERT_IN_DTCM() in pinmap.h (invariant I-11a).
-#define MELTYFC_TIER MELTYFC_TIER_STD
 #define EXPECTED_TIMER_CLOCK_HZ 216000000U  // F722: APB2 timer = SYSCLK (×2 multiplier)

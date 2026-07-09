@@ -84,9 +84,9 @@ typedef struct {
 
 // Motor pin table — populated from pinmap.h at init
 // Hardware-specific: filled by dshotConfigurePins()
-static PinDef motorPins[NUM_MOTORS];
+static PinDef __attribute__((unused)) motorPins[NUM_MOTORS];
 
-static void dshotConfigureGpio(const PinDef* pin, bool asOutput) {
+static void __attribute__((unused)) dshotConfigureGpio(const PinDef* pin, bool asOutput) {
     GPIO_InitTypeDef gpio = {};
     gpio.Pin = pin->pin;
     gpio.Speed = GPIO_SPEED_FREQ_VERY_HIGH;

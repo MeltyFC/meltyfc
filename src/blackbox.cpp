@@ -1,3 +1,4 @@
+#include <cinttypes>
 // MeltyFC — Blackbox-Lite Implementation
 // DI-09/10/11/12 fixes: usable size precompute, sector-start erase,
 // no cross-sector records, record magic for validity.
@@ -98,7 +99,7 @@ int blackboxFormatRecord(const BlackboxRecord& rec, char* buf, size_t bufLen) {
     if (rec.magic != BLACKBOX_RECORD_MAGIC) {
         return snprintf(buf, bufLen, "# invalid record (magic=0x%04X)\r\n", rec.magic);
     }
-    return snprintf(buf, bufLen, "%u,%.2f,%.4f,%.2f,%.1f,%u,%u,%u\r\n", rec.timestampMs,
+    return snprintf(buf, bufLen, "%" PRIu32 ",%.2f,%.4f,%.2f,%.1f,%u,%u,%u\r\n", rec.timestampMs,
                     (double)rec.omega, (double)rec.phase, (double)rec.packVoltage,
                     (double)rec.slipPct, rec.orientation, rec.hitDetected, rec.armState);
 }

@@ -7,6 +7,7 @@
 #pragma once
 
 #include "pinmap.h"
+#define MELTYFC_TIER MELTYFC_TIER_FULL
 #include "feature_tiers.h"
 
 // Clock configuration — provided by target, called from main
@@ -58,5 +59,4 @@ void SystemClock_Config(void);
 // H743 DMAMUX note: request routing is programmable (unlike F4/F7 fixed
 // stream+channel mapping). DShot/WS2812 drivers gain a DMAMUX-assignment
 // layer in the h7 family dir. This is the NICE difference.
-#define MELTYFC_TIER MELTYFC_TIER_FULL
 #define EXPECTED_TIMER_CLOCK_HZ 200000000U  // H743: APB2 timer = AHB = SYSCLK/2

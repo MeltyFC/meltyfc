@@ -1,3 +1,4 @@
+#include <cinttypes>
 // MeltyFC — Fault Handler Implementation (R3-2)
 // Pure logic: breadcrumb formatting and CFSR decode.
 
@@ -95,12 +96,12 @@ int formatFaultDump(const FaultBreadcrumb& fb, char* buf, int bufLen) {
     return snprintf(buf, bufLen,
                     "=== FAULT DUMP ===\n"
                     "Type: %s\n"
-                    "PC:   0x%08X\n"
-                    "LR:   0x%08X\n"
-                    "CFSR: 0x%08X [%s]\n"
-                    "HFSR: 0x%08X\n"
-                    "MMFAR: 0x%08X\n"
-                    "BFAR: 0x%08X\n"
+                    "PC:   0x%08" PRIX32 "\n"
+                    "LR:   0x%08" PRIX32 "\n"
+                    "CFSR: 0x%08" PRIX32 " [%s]\n"
+                    "HFSR: 0x%08" PRIX32 "\n"
+                    "MMFAR: 0x%08" PRIX32 "\n"
+                    "BFAR: 0x%08" PRIX32 "\n"
                     "Uptime: %lu ms\n",
                     faultTypeName(fb.faultType), fb.pc, fb.lr, fb.cfsr, cfsrBuf, fb.hfsr, fb.mmfar,
                     fb.bfar, (unsigned long)fb.uptime_ms);
