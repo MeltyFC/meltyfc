@@ -1,0 +1,73 @@
+// MeltyFC — VBAT HAL: STM32H7 Family
+// 16-bit ADC (0-65535) — NOT 12-bit like F4/F7!
+// R7-1: Code that assumes 4095 on H7 reads 16x high → LVC never trips.
+// [2026-07-09]
+
+#ifndef NATIVE_BUILD
+#include "hal/common/vbat_hal.h"
+#ifdef STM32H7xx
+#include "stm32h7xx_hal.h"
+#include "target.h"
+
+namespace melty {
+namespace hal {
+
+static ADC_HandleTypeDef hAdc;
+static bool adcInitialized = false;
+
+// H7: 16-bit ADC! This is the family-specific trap.
+static constexpr uint16_t ADC_FULL_SCALE = 65535;  // 16-bit
+static constexpr uint16_t ADC_REF_MV = 3300;
+
+void vbatInit() {
+    adcInitialized = false;
+    // H7 ADC needs specific clock configuration
+    // ADC3 is the instance used by most H7 FC boards (from BF configs)
+    __HAL_RCC_ADC3_CLK_ENABLE();
+
+    hAdc.Instance = ADC3;  // H7 boards typically use ADC3 for analog
+    hAdc.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV6;
+    hAdc.Init.Resolution = ADC_RESOLUTION_16B;  // 16-bit — the H7 difference
+    hAdc.Init.ScanConvMode = ADC_SCAN_DISABLE;
+    hAdc.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+    hAdc.Init.LowPowerAutoWait = DISABLE;
+    hAdc.Init.ContinuousConvMode = DISABLE;
+    hAdc.Init.NbrOfConversion = 1;
+    hAdc.Init.DiscontinuousConvMode = DISABLE;
+    hAdc.Init.ConversionDataManagement = ADC_CONVERSIONDATA_DR;
+    hAdc.Init.Overrun = ADC_OVR_DATA_OVERWRITTEN;
+    if (HAL_ADC_Init(&hAdc) == HAL_OK) {
+        // H7 ADC requires calibration
+        HAL_ADCEx_Calibration_Start(&hAdc, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED);
+        adcInitialized = true;
+    }
+}
+
+uint16_t vbatReadRaw() {
+    if (!adcInitialized) return 0;
+    HAL_ADC_Start(&hAdc);
+    if (HAL_ADC_PollForConversion(&hAdc, 2) != HAL_OK) return 0;
+    uint16_t raw = (uint16_t)HAL_ADC_GetValue(&hAdc);
+    HAL_ADC_Stop(&hAdc);
+    return raw;
+}
+
+uint32_t vbatReadMv() {
+    uint16_t raw = vbatReadRaw();
+    if (raw == 0) return 0;
+    // 16-bit conversion: mV = raw * 3300 / 65535 * divider
+    uint32_t adcMv = (uint32_t)raw * ADC_REF_MV / ADC_FULL_SCALE;
+#ifdef VBAT_DIVIDER_RATIO
+    return (uint32_t)((float)adcMv * VBAT_DIVIDER_RATIO);
+#else
+    return adcMv;
+#endif
+}
+
+bool vbatValid() { return adcInitialized; }
+uint16_t vbatAdcFullScale() { return ADC_FULL_SCALE; }
+
+} // namespace hal
+} // namespace melty
+#endif
+#endif
