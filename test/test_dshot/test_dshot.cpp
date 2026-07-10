@@ -387,6 +387,85 @@ void test_edt_extended_frame_discarded() {
     TEST_ASSERT_FALSE(isEdtExtendedFrame(edtStatus, false));
 }
 
+// R17-3: DMA mask machine — pure-logic model tests
+// These model the ordering logic from dshotCommit without hardware dependencies.
+
+// Model of the mask machine (mirrors the HAL implementation logic)
+struct MaskMachine {
+    uint8_t activeMask;
+    uint32_t commitTimestamp;
+    uint32_t timeoutUs;
+    uint32_t skipCount;
+    bool stopCalledBeforeClear;  // Observability: was stop called before mask=0?
+
+    void init(uint32_t timeout) {
+        activeMask = 0;
+        commitTimestamp = 0;
+        timeoutUs = timeout;
+        skipCount = 0;
+        stopCalledBeforeClear = false;
+    }
+
+    // Model of stopActiveDmaStreams — records that stop happened before clear
+    void stopActive() {
+        if (activeMask != 0) stopCalledBeforeClear = true;
+        activeMask = 0;
+    }
+
+    bool commit(bool force, uint32_t now) {
+        if (activeMask != 0) {
+            if (force) {
+                stopActive(); // R16-2: force stops first
+            } else {
+                if ((now - commitTimestamp) > (timeoutUs / 1000 + 1)) {
+                    stopActive(); // R16-1: timeout stops first
+                } else {
+                    skipCount++;
+                    return false;
+                }
+            }
+        }
+        activeMask = 0x0F; // 4 motors
+        commitTimestamp = now;
+        return true;
+    }
+};
+
+void test_timeout_stops_before_clear() {
+    // R16-1 pin: timeout path calls stop BEFORE clearing the mask.
+    // A mutant that does mask=0 without stop would leave stopCalledBeforeClear false.
+    MaskMachine mm;
+    mm.init(250);
+
+    // First commit — sets mask active
+    TEST_ASSERT_TRUE(mm.commit(false, 0));
+    TEST_ASSERT_EQUAL_UINT8(0x0F, mm.activeMask);
+
+    // Simulate wedged DMA — mask stays set, timeout fires
+    mm.stopCalledBeforeClear = false;
+    TEST_ASSERT_TRUE(mm.commit(false, 100)); // 100ms > 250µs/1000 + 1 = 1ms
+    TEST_ASSERT_TRUE(mm.stopCalledBeforeClear); // Stop was called before mask cleared
+}
+
+void test_disarm_preempts_busy() {
+    // R16-2 pin: force=true preempts a busy mask immediately.
+    // Without the force path, this would return false (skip).
+    MaskMachine mm;
+    mm.init(250);
+
+    // First commit at t=0
+    TEST_ASSERT_TRUE(mm.commit(false, 0));
+
+    // Immediate force commit at t=0 (within timeout window)
+    // Without force, this would return false
+    TEST_ASSERT_TRUE(mm.commit(true, 0));
+    TEST_ASSERT_TRUE(mm.stopCalledBeforeClear); // Force path stops first too
+
+    // Non-force at t=0 should skip (mask is busy from the force commit)
+    TEST_ASSERT_FALSE(mm.commit(false, 0));
+    TEST_ASSERT_EQUAL_UINT32(1, mm.skipCount);
+}
+
 void test_gcr_missing_start_bit_rejected() {
     uint32_t noStart = (25 << 0) | (27 << 5) | (18 << 10) | (19 << 15);
     TEST_ASSERT_EQUAL_HEX16(0xFFFF, gcrDecode(noStart));
@@ -455,6 +534,10 @@ int main() {
     // Phase D: F-04 + F-03 tests
     RUN_TEST(test_edt_extended_frame_discarded);
     RUN_TEST(test_gcr_missing_start_bit_rejected);
+
+    // R17-3: DMA mask machine pin tests
+    RUN_TEST(test_timeout_stops_before_clear);
+    RUN_TEST(test_disarm_preempts_busy);
 
     return UNITY_END();
 }

@@ -212,13 +212,13 @@ extern const ParamDef PARAM_REGISTRY[];
 extern const size_t PARAM_REGISTRY_SIZE;
 
 // Lookup by name — returns nullptr if not found
-const ParamDef* findParam(const char* name);
+[[nodiscard]] const ParamDef* findParam(const char* name);
 
 // Get/set a param value in a ConfigData struct by ParamDef
-float getParamFloat(const ConfigData& cfg, const ParamDef& def);
-bool setParamFloat(ConfigData& cfg, const ParamDef& def, float value);
+[[nodiscard]] float getParamFloat(const ConfigData& cfg, const ParamDef& def);
+[[nodiscard]] bool setParamFloat(ConfigData& cfg, const ParamDef& def, float value);
 
 // Format a param value as string (for CLI output)
-int formatParam(const ConfigData& cfg, const ParamDef& def, char* buf, size_t bufLen);
+int formatParam(const ConfigData& cfg, const ParamDef& def, char* buf, size_t bufLen); // G-1: format return benign-drop at CLI sites
 
 } // namespace melty

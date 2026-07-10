@@ -54,14 +54,14 @@ struct BlackboxState {
 // ============================================================================
 
 void blackboxInit(BlackboxState& state, uint32_t flashSize, uint32_t sectorSize);
-uint32_t blackboxNextOffset(BlackboxState& state);
-bool blackboxNeedsErase(const BlackboxState& state, uint32_t* eraseAddr);
-uint32_t blackboxCapacity(const BlackboxState& state);
-uint32_t blackboxStored(const BlackboxState& state);
-bool blackboxReadOffset(const BlackboxState& state, uint32_t n, uint32_t* offset);
+[[nodiscard]] uint32_t blackboxNextOffset(BlackboxState& state);
+[[nodiscard]] bool blackboxNeedsErase(const BlackboxState& state, uint32_t* eraseAddr);
+[[nodiscard]] uint32_t blackboxCapacity(const BlackboxState& state);
+[[nodiscard]] uint32_t blackboxStored(const BlackboxState& state);
+[[nodiscard]] bool blackboxReadOffset(const BlackboxState& state, uint32_t n, uint32_t* offset);
 
-int blackboxFormatRecord(const BlackboxRecord& rec, char* buf, size_t bufLen);
-int blackboxFormatHeader(char* buf, size_t bufLen);
+[[nodiscard]] int blackboxFormatRecord(const BlackboxRecord& rec, char* buf, size_t bufLen);
+[[nodiscard]] int blackboxFormatHeader(char* buf, size_t bufLen);
 
 // R16-5: Check-defer logic — buffer the record if flash is busy.
 // Pure logic, natively testable. The actual flash write is the caller's job.
@@ -76,11 +76,11 @@ void blackboxDeferInit(BlackboxDeferState& defer);
 
 // Attempt to stage a record. If flash isBusy, buffers it and returns true.
 // Caller: if true, skip write this loop; on next loop, call blackboxRetryDeferred.
-bool blackboxDeferIfBusy(BlackboxDeferState& defer, const BlackboxRecord& rec, bool flashBusy);
+[[nodiscard]] bool blackboxDeferIfBusy(BlackboxDeferState& defer, const BlackboxRecord& rec, bool flashBusy);
 
 // Retry the deferred record. Returns true if there was a pending record to write.
 // Caller writes the returned record to flash.
-bool blackboxRetryDeferred(BlackboxDeferState& defer, BlackboxRecord& out);
+[[nodiscard]] bool blackboxRetryDeferred(BlackboxDeferState& defer, BlackboxRecord& out);
 
 } // namespace melty
 

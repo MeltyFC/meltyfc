@@ -472,7 +472,7 @@ uint8_t clampConfigToRegistry(ConfigData& cfg) {
         }
 
         if (val != original) {
-            setParamFloat(cfg, def, val);
+            (void)setParamFloat(cfg, def, val); // G-1: benign — readonly already checked above
             clamped++;
         }
     }

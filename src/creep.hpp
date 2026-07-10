@@ -33,7 +33,7 @@ struct CreepConfig {
 // currentRpm: measured RPM (0 if stopped)
 // forceSwitch: CH_CREEP_FORCE active
 // Returns true if creep mode should be active.
-bool creepUpdateState(CreepState& state, float currentRpm, bool forceSwitch,
+[[nodiscard]] bool creepUpdateState(CreepState& state, float currentRpm, bool forceSwitch,
                       const CreepConfig& cfg);
 
 // ============================================================================

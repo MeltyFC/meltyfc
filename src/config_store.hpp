@@ -13,10 +13,10 @@ namespace melty {
 // Migrate old config data to current schema.
 // Returns true if migration successful (including same-version copy).
 // Returns false if version incompatible (out gets defaults).
-bool migrateConfig(const uint8_t* oldData, size_t oldSize, ConfigData& out);
+[[nodiscard]] bool migrateConfig(const uint8_t* oldData, size_t oldSize, ConfigData& out);
 
 // CRC32 for config integrity (excludes the crc32 field itself)
-uint32_t computeConfigCrc(const ConfigData& cfg);
+[[nodiscard]] uint32_t computeConfigCrc(const ConfigData& cfg);
 
 // ============================================================================
 // Cross-param validation (Round 2 A1)
@@ -38,8 +38,15 @@ struct ConfigValidationResult {
 // R15-5: Load-path per-field clamp — returns number of fields clamped.
 // FLOOR-flagged params clamp UP; everything else clamps to [min,max].
 // Call post-CRC, pre-cross-rules on loaded config.
-uint8_t clampConfigToRegistry(ConfigData& cfg);
+[[nodiscard]] uint8_t clampConfigToRegistry(ConfigData& cfg);
 
-ConfigValidationResult validateConfig(ConfigData& cfg);
+// R17-2: Persistent flag — set after clampConfigToRegistry finds out-of-range values.
+// Visible in CLI `status`, consumed by `save` notification.
+struct ConfigLoadState {
+    uint8_t clampedCount;    // Number of fields clamped on last load
+    bool wasClampedOnLoad;   // True if any fields were clamped
+};
+
+[[nodiscard]] ConfigValidationResult validateConfig(ConfigData& cfg);
 
 } // namespace melty

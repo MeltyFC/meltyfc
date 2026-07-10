@@ -61,10 +61,10 @@ void test_set_value_clamped() {
     const ParamDef* def = findParam("MAX_RPM");
     TEST_ASSERT_NOT_NULL(def);
     // Set above max
-    setParamFloat(cfg, *def, 99999.0f);
+    (void)setParamFloat(cfg, *def, 99999.0f); // G-1: result unused in test — value check follows
     TEST_ASSERT_EQUAL_FLOAT(10000.0f, getParamFloat(cfg, *def));
     // Set below min
-    setParamFloat(cfg, *def, 0.0f);
+    (void)setParamFloat(cfg, *def, 0.0f);
     TEST_ASSERT_EQUAL_FLOAT(100.0f, getParamFloat(cfg, *def));
 }
 
@@ -72,7 +72,7 @@ void test_set_float_precision() {
     ConfigData cfg;
     const ParamDef* def = findParam("THROTTLE_CAP");
     TEST_ASSERT_NOT_NULL(def);
-    setParamFloat(cfg, *def, 0.85f);
+    (void)setParamFloat(cfg, *def, 0.85f);
     TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.85f, getParamFloat(cfg, *def));
 }
 
@@ -82,7 +82,7 @@ void test_failsafe_floor() {
     TEST_ASSERT_NOT_NULL(def);
     TEST_ASSERT(def->flags & ParamFlags::FLOOR);
     // Try to set below floor
-    setParamFloat(cfg, *def, 100.0f);
+    (void)setParamFloat(cfg, *def, 100.0f);
     TEST_ASSERT_EQUAL_FLOAT(500.0f, getParamFloat(cfg, *def));
 }
 
@@ -337,12 +337,12 @@ void test_line_buffer_overflow_discards() {
     lb.init();
     // Feed 200 characters (exceeds CLI_MAX_LINE=128), then newline
     for (int i = 0; i < 200; i++) {
-        lb.feed('x');
+        (void)lb.feed('x');
     }
     bool ready = lb.feed('\n');
     TEST_ASSERT_FALSE(ready); // Overflowed line is discarded
     // Buffer is reset for next line
-    lb.feed('a');
+    (void)lb.feed('a');
     ready = lb.feed('\n');
     TEST_ASSERT_TRUE(ready);
     TEST_ASSERT_EQUAL_STRING("a", lb.line());
@@ -444,6 +444,13 @@ void test_clamp_config_legacy_failsafe_floor() {
     uint8_t clamped = clampConfigToRegistry(cfg);
     TEST_ASSERT_GREATER_THAN(0, clamped);
     TEST_ASSERT_EQUAL_UINT16(500, cfg.failsafeMs);
+
+    // R17-2: ConfigLoadState flag
+    ConfigLoadState loadState;
+    loadState.clampedCount = clamped;
+    loadState.wasClampedOnLoad = (clamped > 0);
+    TEST_ASSERT_TRUE(loadState.wasClampedOnLoad);
+    TEST_ASSERT_GREATER_THAN(0, loadState.clampedCount);
 }
 
 void test_clamp_config_over_max_rpm() {

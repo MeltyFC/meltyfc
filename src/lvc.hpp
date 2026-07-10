@@ -42,7 +42,7 @@ struct LvcState {
 // Auto-detect cell count from pack voltage.
 // Uses nominal ranges: 1S=3.0-4.35, 2S=6.0-8.7, 3S=9.0-13.05, 4S=12.0-17.4
 // Returns 0 if voltage too low or ambiguous.
-uint8_t lvcAutoDetectCells(float packVoltage);
+[[nodiscard]] uint8_t lvcAutoDetectCells(float packVoltage);
 
 // Update LVC state.
 // packVoltage: measured pack voltage

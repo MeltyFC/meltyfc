@@ -78,8 +78,8 @@ struct CrsfParser {
 // ============================================================================
 // CRC8 DVB-S2 (polynomial 0xD5)
 // ============================================================================
-uint8_t crc8DvbS2(uint8_t crc, uint8_t data);
-uint8_t crc8DvbS2Block(const uint8_t* data, size_t len);
+[[nodiscard]] uint8_t crc8DvbS2(uint8_t crc, uint8_t data);
+[[nodiscard]] uint8_t crc8DvbS2Block(const uint8_t* data, size_t len);
 
 // ============================================================================
 // Parser functions
@@ -90,14 +90,14 @@ void crsfParserInit(CrsfParser& parser);
 
 // Feed one byte to the parser.
 // Returns true if a complete valid frame is now in parser.frameBuf.
-bool crsfParserFeed(CrsfParser& parser, uint8_t byte);
+[[nodiscard]] bool crsfParserFeed(CrsfParser& parser, uint8_t byte);
 
 // Decode RC channels from a completed frame (type 0x16).
 // Returns false if frame type doesn't match or CRC fails.
-bool crsfDecodeChannels(const uint8_t* frame, uint8_t frameLen, CrsfChannels& out);
+[[nodiscard]] bool crsfDecodeChannels(const uint8_t* frame, uint8_t frameLen, CrsfChannels& out);
 
 // Decode link stats from a completed frame (type 0x14).
-bool crsfDecodeLinkStats(const uint8_t* frame, uint8_t frameLen, CrsfLinkStats& out);
+[[nodiscard]] bool crsfDecodeLinkStats(const uint8_t* frame, uint8_t frameLen, CrsfLinkStats& out);
 
 // ============================================================================
 // Channel utility — convert raw 11-bit to normalized float
@@ -110,7 +110,7 @@ float crsfChannelToFloat(uint16_t raw);
 float crsfChannelToThrottle(uint16_t raw);
 
 // Convert raw channel value to bool (switch, threshold at mid)
-bool crsfChannelToBool(uint16_t raw);
+[[nodiscard]] bool crsfChannelToBool(uint16_t raw);
 
 // ============================================================================
 // Telemetry frame builders (output bytes to send on UART TX)

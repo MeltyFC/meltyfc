@@ -32,17 +32,17 @@ struct SlotStatus {
 };
 
 // Check if a slot header + data is valid
-SlotStatus validateSlot(const ConfigSlotHeader& header, const ConfigData& data);
+[[nodiscard]] SlotStatus validateSlot(const ConfigSlotHeader& header, const ConfigData& data);
 
 // Determine which slot to LOAD from (valid + higher sequence wins)
 // Returns 0 or 1. Returns -1 if both invalid (use defaults).
-int pickActiveSlot(const SlotStatus& slot0, const SlotStatus& slot1);
+[[nodiscard]] int pickActiveSlot(const SlotStatus& slot0, const SlotStatus& slot1);
 
 // Determine which slot to WRITE to (the older/invalid one)
-int pickWriteSlot(const SlotStatus& slot0, const SlotStatus& slot1);
+[[nodiscard]] int pickWriteSlot(const SlotStatus& slot0, const SlotStatus& slot1);
 
 // Compute next sequence byte
-uint8_t nextSequence(uint8_t current);
+[[nodiscard]] uint8_t nextSequence(uint8_t current);
 
 // Build a slot header for writing
 ConfigSlotHeader buildSlotHeader(uint8_t sequence);

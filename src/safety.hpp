@@ -46,7 +46,7 @@ struct SafetyState {
 
 // Check if all arming preconditions are met
 // Now requires valid-frame gating + debounce
-bool canArm(const ArmPreconditions& pre, const SafetyState& safety, uint8_t requiredFrames);
+[[nodiscard]] bool canArm(const ArmPreconditions& pre, const SafetyState& safety, uint8_t requiredFrames);
 
 // State transitions — returns new state given current state and conditions
 // 2a: LQ-based failsafe (linkQuality == 0 triggers regardless of RC frames)

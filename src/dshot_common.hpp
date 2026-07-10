@@ -34,7 +34,7 @@ static constexpr uint8_t DSHOT_COMPARE_BUF_SIZE = 17;
 // Command packer preserves command IDs (1-47 are valid commands).
 
 // Pack a THROTTLE frame: 0 (disarm) or 48–2047. Values 1-47 clamped to 48.
-uint16_t packThrottleFrame(uint16_t throttle, bool telemetryRequest);
+[[nodiscard]] uint16_t packThrottleFrame(uint16_t throttle, bool telemetryRequest);
 
 // C2/I-14: DisarmedOnlyToken — type-system guard for ESC command frames.
 // Only the safety module can construct this token (when in DISARMED state).
@@ -56,13 +56,13 @@ public:
 // I-14: Requires DisarmedOnlyToken — enforces disarmed state at compile time.
 // The token parameter is unused at runtime but enforces that ONLY code with
 // access to a DisarmedOnlyToken can call this function.
-uint16_t packCommandFrame(DisarmedOnlyToken token, uint16_t command, bool telemetryRequest);
+[[nodiscard]] uint16_t packCommandFrame(DisarmedOnlyToken token, uint16_t command, bool telemetryRequest);
 
 // Pack a bidirectional THROTTLE frame: INVERTED CRC for bidir detection
-uint16_t packThrottleBidir(uint16_t throttle, bool telemetryRequest);
+[[nodiscard]] uint16_t packThrottleBidir(uint16_t throttle, bool telemetryRequest);
 
 // Pack a bidirectional COMMAND frame: command ID + inverted CRC
-uint16_t packCommandBidir(DisarmedOnlyToken token, uint16_t command, bool telemetryRequest);
+[[nodiscard]] uint16_t packCommandBidir(DisarmedOnlyToken token, uint16_t command, bool telemetryRequest);
 
 // Legacy aliases — DEPRECATED, use throttle/command-specific versions
 inline uint16_t packFrame(uint16_t throttle, bool telemetryRequest) {
@@ -73,13 +73,13 @@ inline uint16_t packFrameBidir(uint16_t throttle, bool telemetryRequest) {
 }
 
 // Extract CRC from a packed frame
-uint8_t extractCrc(uint16_t frame);
+[[nodiscard]] uint8_t extractCrc(uint16_t frame);
 
 // Compute DShot CRC (XOR of three nibbles)
-uint8_t computeCrc(uint16_t frameNoCrc);
+[[nodiscard]] uint8_t computeCrc(uint16_t frameNoCrc);
 
 // Validate a received frame's CRC
-bool validateCrc(uint16_t frame);
+[[nodiscard]] bool validateCrc(uint16_t frame);
 
 // ============================================================================
 // DShot timer compare-buffer encoding
@@ -103,7 +103,7 @@ struct DshotTimingConfig {
 // Calculate timing for a given timer clock frequency and DShot bitrate
 // Finding 2: dshotBitrateHz MUST be in Hz (300000 for DShot300, NOT 300).
 // Returns zero timing if input is out of valid range (100k-1200k Hz).
-DshotTimingConfig calculateTiming(uint32_t timerClockHz, uint32_t dshotBitrateHz);
+[[nodiscard]] DshotTimingConfig calculateTiming(uint32_t timerClockHz, uint32_t dshotBitrateHz);
 
 // Encode a 16-bit frame into a 17-element compare-buffer for DMA
 // buf must have space for DSHOT_COMPARE_BUF_SIZE (17) entries
@@ -120,25 +120,25 @@ extern const uint8_t GCR_DECODE_TABLE[32];
 
 // Decode a 21-bit GCR-encoded telemetry frame to 16-bit value
 // Returns decoded 16-bit value, or 0xFFFF on decode error
-uint16_t gcrDecode(uint32_t gcr21bit);
+[[nodiscard]] uint16_t gcrDecode(uint32_t gcr21bit);
 
 // Extract eRPM period from decoded telemetry frame
 // EDT encoding: 3-bit exponent + 9-bit mantissa → period_us = mantissa << exponent
-uint16_t extractErpmPeriod(uint16_t decodedFrame);
+[[nodiscard]] uint16_t extractErpmPeriod(uint16_t decodedFrame);
 
 // R14-2: Check if a decoded frame is EDT extended telemetry (not eRPM).
 // Spec: bird-sanctuary/extended-dshot-telemetry, "Frame structure" section.
 // Discrimination uses the PREFIX (bits [15:12] = exponent + MSB of mantissa):
 //   EDT = even non-zero prefix; eRPM = prefix==0 or odd prefix.
 // MUST be gated on edtNegotiated — without EDT, ALL frames are eRPM.
-bool isEdtExtendedFrame(uint16_t decodedFrame, bool edtNegotiated);
+[[nodiscard]] bool isEdtExtendedFrame(uint16_t decodedFrame, bool edtNegotiated);
 
 // Validate decoded telemetry CRC (INVERTED 4-bit XOR checksum)
-bool validateTelemetryCrc(uint16_t decodedFrame);
+[[nodiscard]] bool validateTelemetryCrc(uint16_t decodedFrame);
 
 // Convert eRPM period to eRPM value
 // period is in µs; eRPM = 60,000,000 / period
-uint32_t periodToErpm(uint16_t periodUs);
+[[nodiscard]] uint32_t periodToErpm(uint16_t periodUs);
 
 // ============================================================================
 // DShot special commands (sent as throttle values 1–47)

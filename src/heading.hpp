@@ -97,7 +97,7 @@ float applyInversion(float transAngle, bool inverted);
 // Hit detection from accel readings
 // A6: Gated on ω > minimum AND |commanded dω| < ramp threshold
 // to prevent false-fires during every spin-up.
-bool detectHit(float aOuterRaw, float expectedG, float thresholdG, float omegaRadS = 999.0f,
+[[nodiscard]] bool detectHit(float aOuterRaw, float expectedG, float thresholdG, float omegaRadS = 999.0f,
                float minOmegaForHitDetection = 0.0f, float commandedDOmega = 0.0f,
                float maxDOmegaForHitDetection = 999.0f);
 

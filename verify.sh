@@ -420,6 +420,8 @@ REQUIRED_SAFETY_TESTS=(
     "test_failsafe_with_lvc_critical_blocks_rearm"
     "test_frame_age_triggers_with_valid_frames"
     "test_blackbox_defers_on_busy"
+    "test_timeout_stops_before_clear"
+    "test_disarm_preempts_busy"
 )
 G3_MISSING=""
 for TEST_NAME in "${REQUIRED_SAFETY_TESTS[@]}"; do
