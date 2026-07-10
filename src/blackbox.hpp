@@ -63,6 +63,25 @@ bool blackboxReadOffset(const BlackboxState& state, uint32_t n, uint32_t* offset
 int blackboxFormatRecord(const BlackboxRecord& rec, char* buf, size_t bufLen);
 int blackboxFormatHeader(char* buf, size_t bufLen);
 
+// R16-5: Check-defer logic — buffer the record if flash is busy.
+// Pure logic, natively testable. The actual flash write is the caller's job.
+// Returns true if the record was buffered (flash was busy, retry next loop).
+// Returns false if the record can be written immediately.
+struct BlackboxDeferState {
+    BlackboxRecord pending;
+    bool hasPending;
+};
+
+void blackboxDeferInit(BlackboxDeferState& defer);
+
+// Attempt to stage a record. If flash isBusy, buffers it and returns true.
+// Caller: if true, skip write this loop; on next loop, call blackboxRetryDeferred.
+bool blackboxDeferIfBusy(BlackboxDeferState& defer, const BlackboxRecord& rec, bool flashBusy);
+
+// Retry the deferred record. Returns true if there was a pending record to write.
+// Caller writes the returned record to flash.
+bool blackboxRetryDeferred(BlackboxDeferState& defer, BlackboxRecord& out);
+
 } // namespace melty
 
 #endif // MELTYFC_HAS_BLACKBOX

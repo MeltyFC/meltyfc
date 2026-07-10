@@ -106,6 +106,32 @@ int blackboxFormatRecord(const BlackboxRecord& rec, char* buf, size_t bufLen) {
                     (double)rec.slipPct, rec.orientation, rec.hitDetected, rec.armState);
 }
 
+// ============================================================================
+// R16-5: Check-defer logic — never block on flash program/erase
+// ============================================================================
+
+void blackboxDeferInit(BlackboxDeferState& defer) {
+    defer.hasPending = false;
+}
+
+bool blackboxDeferIfBusy(BlackboxDeferState& defer, const BlackboxRecord& rec, bool flashBusy) {
+    if (!flashBusy) {
+        return false; // Not busy — caller can write immediately
+    }
+    // Flash busy — buffer the record for retry next loop
+    defer.pending = rec;
+    defer.hasPending = true;
+    return true; // Deferred — do not write this loop
+}
+
+bool blackboxRetryDeferred(BlackboxDeferState& defer, BlackboxRecord& out) {
+    if (!defer.hasPending)
+        return false;
+    out = defer.pending;
+    defer.hasPending = false;
+    return true;
+}
+
 } // namespace melty
 
 #endif // MELTYFC_HAS_BLACKBOX

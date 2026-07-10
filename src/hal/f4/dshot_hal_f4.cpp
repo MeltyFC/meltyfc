@@ -37,7 +37,8 @@ static volatile bool telemReady[NUM_MOTORS] = {};
 // Bounded timeout clears stuck bits and logs the event.
 static volatile uint8_t dmaActiveMask = 0;
 static uint32_t dmaCommitTimestamp = 0;
-static constexpr uint32_t DMA_TIMEOUT_US = 5000; // 5ms — a frame takes ~55µs
+static constexpr uint32_t DMA_TIMEOUT_US = 250; // R16-1: 250µs (~4 frame times at DShot300)
+static uint32_t commitSkipCount = 0; // R16-2: visible starvation counter
 
 // A1: Per-motor timer handle array — supports multi-timer boards
 // Deduplicated: if all motors share one timer, only one handle is initialized
@@ -210,15 +211,42 @@ void dshotSend(uint8_t motorIndex, uint16_t frame) {
     dshot::encodeToCompareBuffer(frame, dshotTiming, dshotCompareBuf[motorIndex]);
 }
 
-void dshotCommit() {
-    // A3: Bounded timeout clears stuck DMA mask
+// R16-1/R16-2: Helper — find timer handle for motor i
+static TIM_HandleTypeDef* timerForMotor(int i) {
+    TIM_HandleTypeDef* htim = &hMotorTimer[i];
+    for (int j = 0; j < i; j++) {
+        if (hMotorTimer[j].Instance == motorRoutes[i].timer) {
+            htim = &hMotorTimer[j];
+            break;
+        }
+    }
+    return htim;
+}
+
+// R16-1: Stop active DMA streams before clearing mask (prevents cascade)
+static void stopActiveDmaStreams() {
+    for (int i = 0; i < NUM_MOTORS; i++) {
+        if (dmaActiveMask & (1 << i)) {
+            HAL_TIM_PWM_Stop_DMA(timerForMotor(i), motorRoutes[i].channel);
+        }
+    }
+    dmaActiveMask = 0;
+}
+
+bool dshotCommit(bool force) {
     if (dmaActiveMask != 0) {
-        // Check if timeout exceeded — clears stuck bits
-        uint32_t now = HAL_GetTick();
-        if ((now - dmaCommitTimestamp) > (DMA_TIMEOUT_US / 1000 + 1)) {
-            dmaActiveMask = 0; // Timeout — force clear, log the event
+        if (force) {
+            // R16-2: Disarm-class commit — stop active streams immediately
+            stopActiveDmaStreams();
         } else {
-            return; // Still in progress, not timed out yet
+            // A3/R16-1: Bounded timeout — stop streams THEN clear
+            uint32_t now = HAL_GetTick();
+            if ((now - dmaCommitTimestamp) > (DMA_TIMEOUT_US / 1000 + 1)) {
+                stopActiveDmaStreams(); // R16-1: stop before clear
+            } else {
+                commitSkipCount++; // R16-2: track starvation
+                return false; // Still in progress, not timed out yet
+            }
         }
     }
 
@@ -227,17 +255,15 @@ void dshotCommit() {
     dmaCommitTimestamp = HAL_GetTick();
 
     for (int i = 0; i < NUM_MOTORS; i++) {
-        TIM_HandleTypeDef* htim = &hMotorTimer[i];
-        for (int j = 0; j < i; j++) {
-            if (hMotorTimer[j].Instance == motorRoutes[i].timer) {
-                htim = &hMotorTimer[j];
-                break;
-            }
-        }
-        HAL_TIM_PWM_Start_DMA(htim, motorRoutes[i].channel,
+        HAL_TIM_PWM_Start_DMA(timerForMotor(i), motorRoutes[i].channel,
                               (uint32_t*)dshotCompareBuf[i],
                               dshot::DSHOT_COMPARE_BUF_SIZE);
     }
+    return true;
+}
+
+uint32_t dshotCommitSkips() {
+    return commitSkipCount;
 }
 
 // R13-1: Pure function — find which route entry matches (timer, active channel)

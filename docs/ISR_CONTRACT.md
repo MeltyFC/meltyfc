@@ -14,7 +14,7 @@ crosses that boundary.
 | Variable | Direction | Type | Atomicity | Owner |
 |----------|-----------|------|-----------|-------|
 | `telemReady[i]` | ISR→Main | volatile bool | Atomic (8-bit on M4/M7) | ISR sets, main clears |
-| `txInProgress` | ISR→Main | volatile bool | Atomic | ISR clears, main sets |
+| `dmaActiveMask` | ISR→Main | volatile uint8_t | Atomic (8-bit store on M4/M7) | ISR clears bits, main sets |
 | `ws2812Busy` | ISR→Main | volatile bool | Atomic | ISR clears, main checks |
 
 ## Rules (non-negotiable)
@@ -24,12 +24,15 @@ crosses that boundary.
 - Read (but not write) DMA buffer contents
 - Call `__HAL_TIM_DISABLE_IT()` to stop further interrupts on this channel
 
-### ISR MUST NEVER:
+### ISR MUST NEVER (R16-3 additions marked):
 - **Allocate memory** (no malloc, no new, no snprintf into dynamic buffers)
 - **Format strings** (no printf, no snprintf — these use the stack heavily)
 - **Block** (no while loops, no HAL_Delay, no busy-waits)
 - **Feed the IWDG** (I-13: watchdog reload at END of main loop ONLY)
 - **Call Wire/I2C/SPI functions** (these may block on bus arbitration)
+- **Call `melty::micros()`** (R16-3: mutates shared 64-bit state on READ — one ISR
+  caller and time steps backward through every finite-value guard; ISR code uses raw
+  `DWT->CYCCNT` deltas instead)
 - **Modify DMA configuration** (turnaround is the exception — dshotBidirTurnaround
   is called from ISR context but only reconfigures its own channel)
 

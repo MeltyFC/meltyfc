@@ -419,6 +419,7 @@ REQUIRED_SAFETY_TESTS=(
     "test_validate_accel_saturation_3000rpm_60mm"
     "test_failsafe_with_lvc_critical_blocks_rearm"
     "test_frame_age_triggers_with_valid_frames"
+    "test_blackbox_defers_on_busy"
 )
 G3_MISSING=""
 for TEST_NAME in "${REQUIRED_SAFETY_TESTS[@]}"; do
@@ -479,6 +480,18 @@ if [ -n "$G8_NO_MODE" ]; then
     fail "G-8: every DMA init must have explicit .Init.Mode = DMA_NORMAL"
 fi
 pass "G-8: DMA-mode explicitness gate"
+
+# R16-3: micros() is main-context only — must not appear in ISR/callback/fault files
+G_MICROS=$(grep -rn 'micros(' src/hal/*/fault_handler_*.cpp src/hal/*/dshot_hal_*.cpp 2>/dev/null \
+    | grep -v '//\|#include\|micros_ISR_OK' \
+    | grep 'micros(' \
+    || true) # ALLOW-TRUE: no-match is the pass
+if [ -n "$G_MICROS" ]; then
+    echo "R16-3 VIOLATION — micros() in ISR-context file (use raw DWT->CYCCNT):"
+    echo "$G_MICROS"
+    fail "R16-3: micros() is main-context only (see ISR_CONTRACT.md)"
+fi
+pass "R16-3: micros() ISR exclusion gate"
 
 # ----------------------------------------------------------------
 # 7. Symbol-floor gate (core wiring check)

@@ -361,6 +361,32 @@ void test_blackbox_format_header() {
     TEST_ASSERT_NOT_NULL(strstr(buf, "omega_rad_s"));
 }
 
+// R16-5: Blackbox check-defer
+void test_blackbox_defers_on_busy() {
+    BlackboxDeferState defer;
+    blackboxDeferInit(defer);
+    TEST_ASSERT_FALSE(defer.hasPending);
+
+    BlackboxRecord rec = {BLACKBOX_RECORD_MAGIC, 0, 1000, 100.0f, 0.5f, 11.1f, 5.0f, 0, 0, 1, 0};
+
+    // Flash not busy → no defer
+    TEST_ASSERT_FALSE(blackboxDeferIfBusy(defer, rec, false));
+    TEST_ASSERT_FALSE(defer.hasPending);
+
+    // Flash busy → defer
+    TEST_ASSERT_TRUE(blackboxDeferIfBusy(defer, rec, true));
+    TEST_ASSERT_TRUE(defer.hasPending);
+
+    // Retry deferred → get the record back
+    BlackboxRecord out = {};
+    TEST_ASSERT_TRUE(blackboxRetryDeferred(defer, out));
+    TEST_ASSERT_EQUAL_UINT32(1000, out.timestampMs);
+    TEST_ASSERT_FALSE(defer.hasPending); // Cleared after retry
+
+    // No pending → retry returns false
+    TEST_ASSERT_FALSE(blackboxRetryDeferred(defer, out));
+}
+
 void test_resync_wrap_around_backward() {
     // THE BUG: pointing backward (±180°), arithmetic mean of angles near ±π
     // averages to ~0 (forward) instead of backward. Circular mean fixes this.
@@ -449,6 +475,7 @@ int main() {
     RUN_TEST(test_blackbox_read_offset);
     RUN_TEST(test_blackbox_format);
     RUN_TEST(test_blackbox_format_header);
+    RUN_TEST(test_blackbox_defers_on_busy);
 
     // Phase G: Cell ambiguity
     RUN_TEST(test_cell_detect_12_4v_ambiguous);

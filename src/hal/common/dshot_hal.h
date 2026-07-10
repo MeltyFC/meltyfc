@@ -21,9 +21,16 @@ void dshotInit();
 // compare-buffer encoding + DMA transfer.
 void dshotSend(uint8_t motorIndex, uint16_t frame);
 
-// Commit all pending DShot frames — triggers DMA for all motors.
+// R16-2: Commit all pending DShot frames — triggers DMA for all motors.
 // Call once per loop after all dshotSend() calls.
-void dshotCommit();
+// Returns true if frames were committed, false if skipped (DMA still busy).
+// force=true: stop active DMAs and commit immediately (for disarm frames —
+// "zero preempts" is structural, not intentional).
+// G-1: [[nodiscard]] — dropped return is a compile error under -Werror.
+[[nodiscard]] bool dshotCommit(bool force = false);
+
+// R16-2: Commit skip counter — feeds loop stats / blackbox
+uint32_t dshotCommitSkips();
 
 // Read bidirectional DShot telemetry (GCR-encoded eRPM from ESC).
 // Returns raw 21-bit GCR frame, or 0 if no telemetry received.

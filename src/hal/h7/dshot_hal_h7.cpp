@@ -28,7 +28,8 @@ static DMA_BUFFER_ATTR uint32_t telemCaptureBuf[NUM_MOTORS][32];
 static volatile bool telemReady[NUM_MOTORS] = {};
 static volatile uint8_t dmaActiveMask = 0;
 static uint32_t dmaCommitTimestamp = 0;
-static constexpr uint32_t DMA_TIMEOUT_US = 5000;
+static constexpr uint32_t DMA_TIMEOUT_US = 250; // R16-1
+static uint32_t commitSkipCount = 0; // R16-2
 
 static TIM_HandleTypeDef hMotorTimer[NUM_MOTORS];
 static DMA_HandleTypeDef hDmaMotor[NUM_MOTORS];
@@ -191,25 +192,45 @@ void dshotSend(uint8_t motorIndex, uint16_t frame) {
     dshot::encodeToCompareBuffer(frame, dshotTiming, dshotCompareBuf[motorIndex]);
 }
 
-void dshotCommit() {
+static TIM_HandleTypeDef* timerForMotor(int i) {
+    TIM_HandleTypeDef* htim = &hMotorTimer[i];
+    for (int j = 0; j < i; j++)
+        if (hMotorTimer[j].Instance == motorRoutes[i].timer) { htim = &hMotorTimer[j]; break; }
+    return htim;
+}
+
+static void stopActiveDmaStreams() {
+    for (int i = 0; i < NUM_MOTORS; i++) {
+        if (dmaActiveMask & (1 << i))
+            HAL_TIM_PWM_Stop_DMA(timerForMotor(i), motorRoutes[i].channel);
+    }
+    dmaActiveMask = 0;
+}
+
+bool dshotCommit(bool force) {
     if (dmaActiveMask != 0) {
-        uint32_t now = HAL_GetTick();
-        if ((now - dmaCommitTimestamp) > (DMA_TIMEOUT_US / 1000 + 1)) {
-            dmaActiveMask = 0;
+        if (force) {
+            stopActiveDmaStreams();
         } else {
-            return;
+            uint32_t now = HAL_GetTick();
+            if ((now - dmaCommitTimestamp) > (DMA_TIMEOUT_US / 1000 + 1)) {
+                stopActiveDmaStreams();
+            } else {
+                commitSkipCount++;
+                return false;
+            }
         }
     }
     dmaActiveMask = (1 << NUM_MOTORS) - 1;
     dmaCommitTimestamp = HAL_GetTick();
     for (int i = 0; i < NUM_MOTORS; i++) {
-        TIM_HandleTypeDef* htim = &hMotorTimer[i];
-        for (int j = 0; j < i; j++)
-            if (hMotorTimer[j].Instance == motorRoutes[i].timer) { htim = &hMotorTimer[j]; break; }
-        HAL_TIM_PWM_Start_DMA(htim, motorRoutes[i].channel,
+        HAL_TIM_PWM_Start_DMA(timerForMotor(i), motorRoutes[i].channel,
                               (uint32_t*)dshotCompareBuf[i], dshot::DSHOT_COMPARE_BUF_SIZE);
     }
+    return true;
 }
+
+uint32_t dshotCommitSkips() { return commitSkipCount; }
 
 uint32_t dshotReadTelemetryRaw(uint8_t motorIndex) {
     if (motorIndex >= NUM_MOTORS) return 0;

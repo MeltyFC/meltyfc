@@ -161,9 +161,18 @@ struct IFlashStorage {
     virtual bool init() = 0;
 
     virtual bool read(uint32_t addr, uint8_t* buf, size_t len) = 0;
+
+    // R16-5: write() must return within 50µs or report busy via isBusy().
+    // Never blocks on program/erase completion. Page programs (0.7–3ms) are
+    // started and tracked via isBusy(); the blackbox check-defer layer
+    // buffers records during program cycles.
     virtual bool write(uint32_t addr, const uint8_t* buf, size_t len) = 0;
     virtual bool eraseSector(uint32_t addr) = 0;
     virtual bool eraseChip() = 0;
+
+    // R16-5: Returns true if flash is mid-program/erase. Caller must check
+    // before write() — blackbox uses blackboxDeferIfBusy() to buffer.
+    virtual bool isBusy() const = 0;
 
     virtual uint32_t capacity() const = 0;   // Total bytes
     virtual uint32_t sectorSize() const = 0; // Erase granularity
