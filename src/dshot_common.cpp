@@ -170,18 +170,32 @@ uint16_t extractErpmPeriod(uint16_t decodedFrame) {
 }
 
 bool isEdtExtendedFrame(uint16_t decodedFrame, bool edtNegotiated) {
-    // R13-3: EDT frame identification per AM32/Bluejay spec.
-    // CRITICAL: Must be gated on edtNegotiated. Without EDT negotiation,
-    // the bottom 4 bits are CRC — values 1-5 appear in ~31% of valid eRPM frames.
-    // Without this gate, those frames get misclassified as EDT and discarded.
+    // R13-3: Must be gated on edtNegotiated. Without EDT negotiation,
+    // ALL frames are eRPM — no discrimination applies.
     if (!edtNegotiated)
         return false;
 
-    // In EDT mode, the ESC replaces the CRC nibble with a type indicator on
-    // extended status frames. Type 0 = normal eRPM (valid CRC), types 1-5 = EDT:
-    //   1=temperature, 2=voltage, 3=current, 4=debug, 5=state/events
-    uint8_t typeNibble = decodedFrame & 0x0F;
-    return typeNibble >= 1 && typeNibble <= 5;
+    // R14-2: EDT frame identification per bird-sanctuary/extended-dshot-telemetry
+    // spec, "Frame structure" section.
+    //
+    // 16-bit decoded frame layout: eeem mmmm mmmm cccc
+    //   eee = 3-bit exponent (bits [15:13])
+    //   m   = 9-bit mantissa (bits [12:4]), MSB at bit 12
+    //   cccc = 4-bit checksum (bits [3:0])
+    //
+    // The PREFIX is bits [15:12] = [e2 e1 e0 m8] (exponent + MSB of mantissa).
+    // Spec: "If [the prefix] is 0 OR the 8th bit is 1, it is a eRPM frame,
+    //        the other ranges are EDT frames."
+    //
+    // EDT prefixes (even, non-zero):
+    //   0b0010 (2)  = Temperature     0b1000 (8)  = Debug 1
+    //   0b0100 (4)  = Voltage         0b1010 (10) = Debug 2
+    //   0b0110 (6)  = Current         0b1100 (12) = Stress level
+    //                                 0b1110 (14) = Status
+    //
+    // eRPM: prefix == 0 (stationary/low) OR odd prefix (m8 = 1).
+    uint8_t prefix = (decodedFrame >> 12) & 0x0F;
+    return prefix != 0 && (prefix & 1) == 0;
 }
 
 bool validateTelemetryCrc(uint16_t decodedFrame) {

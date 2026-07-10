@@ -58,10 +58,13 @@
 #define CRSF_BAUD 420000
 
 // D1: Battery voltage sense — ADC route tuple
+// R14-1: H72x ADC3 is 12-bit (not 16-bit like H743). ES0491 §2.10.7 forbids our
+// usage pattern on Rev A. Use ADC1 instead — PC0 is INP10 on ADC1/2/3, same pin.
+// MicoAir H743 correctly stays on ADC3 (16-bit, no errata constraint).
 #define VBAT_PIN PC0                 // BF_CONFIG_DERIVED
 #define VBAT_DIVIDER_RATIO 11.0f     // BF_CONFIG_DERIVED
-#define VBAT_ADC_INSTANCE ADC3       // H725: PC0 on ADC3
-#define VBAT_ADC_CHANNEL ADC_CHANNEL_10  // PC0 = ADC3_INP10
+#define VBAT_ADC_INSTANCE ADC1       // H72x: ADC1 is 16-bit; ADC3 is 12-bit (ES0491 §2.10.7)
+#define VBAT_ADC_CHANNEL ADC_CHANNEL_10  // PC0 = ADC1_INP10
 #define VBAT_GPIO_PORT GPIOC
 #define VBAT_GPIO_PIN GPIO_PIN_0
 #define VBAT_SAMPLE_TIME ADC_SAMPLETIME_64CYCLES_5

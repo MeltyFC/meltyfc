@@ -343,22 +343,48 @@ void test_compare_buffer_17th_slot() {
 
 // Phase D: F-04 EDT + F-03 start-bit tests
 void test_edt_extended_frame_discarded() {
-    // R13-3: EDT classification MUST be gated on edtNegotiated flag.
-    // Without EDT negotiation, ALL frames are eRPM — even if CRC nibble is 1-5.
-    uint16_t edtFrame = 0x1234;  // bottom nibble 4 = EDT type "debug"
-    TEST_ASSERT_TRUE(isEdtExtendedFrame(edtFrame, true));   // EDT negotiated → extended
-    TEST_ASSERT_FALSE(isEdtExtendedFrame(edtFrame, false));  // NOT negotiated → eRPM
+    // R14-2: EDT discrimination per bird-sanctuary/extended-dshot-telemetry spec.
+    // PREFIX = bits [15:12] of decoded frame = [e2 e1 e0 m8].
+    // EDT: even non-zero prefix. eRPM: prefix==0 or odd prefix.
+    //
+    // Spec-derived test frames (16-bit decoded, format: eeem mmmm mmmm cccc):
 
-    uint16_t erpmFrame = 0x0ABC;  // bottom nibble C (12) → not an EDT type
-    TEST_ASSERT_FALSE(isEdtExtendedFrame(erpmFrame, true));  // Even with EDT, not a valid type
-    TEST_ASSERT_FALSE(isEdtExtendedFrame(erpmFrame, false)); // Without EDT, definitely not
+    // EDT Temperature: prefix 0b0010 = exp=1, m8=0, value=50°C → 0x2325
+    // Payload: (1<<13)|(0<<12)|(50<<4) = 0x2320, + arbitrary CRC nibble 5
+    uint16_t edtTemp = (1u << 13) | (0u << 12) | (50u << 4) | 0x5;  // 0x2325
+    TEST_ASSERT_TRUE(isEdtExtendedFrame(edtTemp, true));
+    TEST_ASSERT_FALSE(isEdtExtendedFrame(edtTemp, false));  // gate: not negotiated
 
-    // R13-3: Verify the 31% bug is fixed — CRC nibble values 1-5 are NOT EDT without negotiation
-    for (uint8_t crc = 1; crc <= 5; crc++) {
-        uint16_t frame = 0x0AB0 | crc;  // Valid-looking eRPM with CRC 1-5
-        TEST_ASSERT_FALSE(isEdtExtendedFrame(frame, false));  // Must NOT eat these
-        TEST_ASSERT_TRUE(isEdtExtendedFrame(frame, true));    // EDT negotiated → these ARE EDT
-    }
+    // EDT Voltage: prefix 0b0100 = exp=2, m8=0, value=12 (3.0V) → 0x40C?
+    uint16_t edtVolt = (2u << 13) | (0u << 12) | (12u << 4) | 0x3;  // 0x40C3
+    TEST_ASSERT_TRUE(isEdtExtendedFrame(edtVolt, true));
+
+    // EDT Current: prefix 0b0110 = exp=3, m8=0
+    uint16_t edtCurr = (3u << 13) | (0u << 12) | (5u << 4) | 0xA;   // 0x6050 | 0xA
+    TEST_ASSERT_TRUE(isEdtExtendedFrame(edtCurr, true));
+
+    // EDT Status: prefix 0b1110 = exp=7, m8=0
+    uint16_t edtStatus = (7u << 13) | (0u << 12) | (1u << 4) | 0x0;  // 0xE010
+    TEST_ASSERT_TRUE(isEdtExtendedFrame(edtStatus, true));
+
+    // eRPM: prefix 0b0001 = exp=0, m8=1 (odd prefix → eRPM even when negotiated)
+    uint16_t erpmOdd = (0u << 13) | (1u << 12) | (100u << 4) | 0x7;  // 0x1647
+    TEST_ASSERT_FALSE(isEdtExtendedFrame(erpmOdd, true));
+    TEST_ASSERT_FALSE(isEdtExtendedFrame(erpmOdd, false));
+
+    // eRPM: prefix 0b0011 = exp=1, m8=1 (odd prefix)
+    uint16_t erpmOdd2 = (1u << 13) | (1u << 12) | (200u << 4) | 0x2; // 0x3C82
+    TEST_ASSERT_FALSE(isEdtExtendedFrame(erpmOdd2, true));
+
+    // eRPM: prefix 0b0000 = exp=0, m8=0 (zero prefix → stationary/low-rpm)
+    uint16_t erpmZero = (0u << 13) | (0u << 12) | (0u << 4) | 0x0;   // 0x0000
+    TEST_ASSERT_FALSE(isEdtExtendedFrame(erpmZero, true));
+
+    // R13-3 gate: ALL frames return false when EDT not negotiated
+    TEST_ASSERT_FALSE(isEdtExtendedFrame(edtTemp, false));
+    TEST_ASSERT_FALSE(isEdtExtendedFrame(edtVolt, false));
+    TEST_ASSERT_FALSE(isEdtExtendedFrame(edtCurr, false));
+    TEST_ASSERT_FALSE(isEdtExtendedFrame(edtStatus, false));
 }
 
 void test_gcr_missing_start_bit_rejected() {

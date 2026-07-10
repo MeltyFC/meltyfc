@@ -126,10 +126,11 @@ uint16_t gcrDecode(uint32_t gcr21bit);
 // EDT encoding: 3-bit exponent + 9-bit mantissa → period_us = mantissa << exponent
 uint16_t extractErpmPeriod(uint16_t decodedFrame);
 
-// R13-3: Check if a decoded frame is EDT extended telemetry (not eRPM).
+// R14-2: Check if a decoded frame is EDT extended telemetry (not eRPM).
+// Spec: bird-sanctuary/extended-dshot-telemetry, "Frame structure" section.
+// Discrimination uses the PREFIX (bits [15:12] = exponent + MSB of mantissa):
+//   EDT = even non-zero prefix; eRPM = prefix==0 or odd prefix.
 // MUST be gated on edtNegotiated — without EDT, ALL frames are eRPM.
-// Without this gate, ~31% of valid eRPM frames get misclassified because
-// their CRC nibble (bottom 4 bits) happens to match EDT type codes 1-5.
 bool isEdtExtendedFrame(uint16_t decodedFrame, bool edtNegotiated);
 
 // Validate decoded telemetry CRC (INVERTED 4-bit XOR checksum)
