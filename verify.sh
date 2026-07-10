@@ -299,6 +299,18 @@ for TARGET_DIR in targets/*/; do
     fi
 done
 
+# V-1/I-21: HAL drivers must not hardcode timer instances outside route consumption
+# Allowed patterns: enableTimerClock dispatcher, MOE predicate (TIM1/TIM8 check),
+# __HAL_RCC_TIM clock enables, ifdef TIM8 guards. Everything else = hardcoded routing.
+I21_VIOLATIONS=$(grep -rn 'TIM[0-9]' src/hal/*/dshot_hal_*.cpp src/hal/*/ws2812_hal_*.cpp 2>/dev/null \
+    | grep -v 'enableTimerClock\|timerAlready\|== TIM1\|== TIM8\|ifdef TIM\|__HAL_RCC_TIM\|DMA_REQUEST_TIM\|TIM_CHANNEL\|TIM_BDTR\|TIM_OCMODE\|TIM_HandleTypeDef\|//\|TIMER_PIN\|hMotorTimer\|DSHOT_BITRATE' \
+    || true)
+if [ -n "$I21_VIOLATIONS" ]; then
+    echo "I-21 VIOLATION — direct timer instance in HAL (should use route table):"
+    echo "$I21_VIOLATIONS"
+    fail "I-21: HAL drivers must consume timer instances from pinmap route defines"
+fi
+
 # B1/CO-4: Choke-point gates — motor authority must flow through safety.cpp only
 CHOKE_LEAK=$(grep -rn 'chokeMotorOutput\|throttleToDshot' \
     src/ 2>/dev/null | grep -v 'safety\.\|motors_dshot\.\|main\.cpp\|test/' || true)

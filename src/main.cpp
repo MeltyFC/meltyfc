@@ -54,6 +54,12 @@ namespace melty {
 // void config_cli_update();
 }
 
+// --- V-3/C4: Reset cause + A2: Fault breadcrumbs ---
+#ifndef ARDUINO
+#include "reset_cause.hpp"
+#include "hal/common/fault_handler_hw.h"
+#endif
+
 // --- A3: DWT cycle counter for µs resolution ---
 #ifndef ARDUINO
 #include "hal/common/dwt_micros.h"
@@ -177,8 +183,22 @@ int main(void) {
     }
     #endif
 
+    // V-3/C4: Reset cause forensics — read + clear RCC_CSR FIRST
+    // Pairs with A2 fault breadcrumbs for full post-mortem
+    melty::ResetInfo resetInfo = melty::readResetCause();
+    (void)resetInfo; // Used by CLI status + blackbox at integration
+
     // A3: DWT cycle counter — must be after SystemClock_Config
     melty::dwtInit();
+
+    // V-3/A2: Check fault breadcrumbs from previous crash
+    // Available for blackbox header + CLI `status` display
+    if (melty::faultBreadcrumbValid()) {
+        // Previous run crashed — breadcrumbs contain PC/LR/CFSR/HFSR
+        // Paired with resetInfo for complete post-mortem story
+        // CLI will display on next `status` command; blackbox logs on init
+        // Don't clear until after logging — cleared by CLI `fault clear` command
+    }
 
     melty_setup();
     while (1) {

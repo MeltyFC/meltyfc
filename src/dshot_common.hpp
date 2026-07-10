@@ -43,8 +43,10 @@ struct DisarmedOnlyToken {
 private:
     DisarmedOnlyToken() = default;
     friend struct SafetyModule; // Only safety.cpp can create these
-    // If no SafetyModule exists yet, packCommandFrame still compiles
-    // but callers must obtain the token through the safety interface.
+#ifdef UNIT_TEST
+public: // Tests can construct tokens directly
+#endif
+    // Production callers must obtain the token through the safety interface.
 public:
     // Public copy/move for passing around once created
     DisarmedOnlyToken(const DisarmedOnlyToken&) = default;
@@ -52,13 +54,15 @@ public:
 
 // Pack a COMMAND frame: command ID (1-47) preserved, NOT clamped.
 // I-14: Requires DisarmedOnlyToken — enforces disarmed state at compile time.
-uint16_t packCommandFrame(uint16_t command, bool telemetryRequest);
+// The token parameter is unused at runtime but enforces that ONLY code with
+// access to a DisarmedOnlyToken can call this function.
+uint16_t packCommandFrame(DisarmedOnlyToken token, uint16_t command, bool telemetryRequest);
 
 // Pack a bidirectional THROTTLE frame: INVERTED CRC for bidir detection
 uint16_t packThrottleBidir(uint16_t throttle, bool telemetryRequest);
 
 // Pack a bidirectional COMMAND frame: command ID + inverted CRC
-uint16_t packCommandBidir(uint16_t command, bool telemetryRequest);
+uint16_t packCommandBidir(DisarmedOnlyToken token, uint16_t command, bool telemetryRequest);
 
 // Legacy aliases — DEPRECATED, use throttle/command-specific versions
 inline uint16_t packFrame(uint16_t throttle, bool telemetryRequest) {

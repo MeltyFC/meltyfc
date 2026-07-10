@@ -112,7 +112,7 @@ void test_timing_rejects_zero() {
 
 // Finding 6: Command frame preserves command ID
 void test_command_frame_preserves_id() {
-    uint16_t frame = packCommandFrame(13, true); // EDT enable
+    uint16_t frame = packCommandFrame(DisarmedOnlyToken{}, 13, true); // EDT enable
     uint16_t command = (frame >> 5) & 0x7FF;
     TEST_ASSERT_EQUAL_UINT16(13, command); // Must be 13, not clamped to 48
 }
@@ -124,7 +124,7 @@ void test_throttle_frame_clamps_to_48() {
 }
 
 void test_command_bidir_preserves_id() {
-    uint16_t frame = packCommandBidir(13, true);
+    uint16_t frame = packCommandBidir(DisarmedOnlyToken{}, 13, true);
     uint16_t command = (frame >> 5) & 0x7FF;
     TEST_ASSERT_EQUAL_UINT16(13, command);
 }

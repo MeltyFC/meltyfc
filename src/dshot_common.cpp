@@ -44,9 +44,9 @@ uint16_t packThrottleFrame(uint16_t throttle, bool telemetryRequest) {
     return frame;
 }
 
-uint16_t packCommandFrame(uint16_t command, bool telemetryRequest) {
+uint16_t packCommandFrame(DisarmedOnlyToken /*token*/, uint16_t command, bool telemetryRequest) {
+    // I-14: Token parameter enforces disarmed state at compile time
     // Command frames use values 1-47 — DO NOT clamp to 48
-    // Caller must ensure this is only sent while DISARMED
     if (command > 47)
         command = 47;
 
@@ -66,7 +66,7 @@ uint16_t packThrottleBidir(uint16_t throttle, bool telemetryRequest) {
     return frame;
 }
 
-uint16_t packCommandBidir(uint16_t command, bool telemetryRequest) {
+uint16_t packCommandBidir(DisarmedOnlyToken /*token*/, uint16_t command, bool telemetryRequest) {
     if (command > 47)
         command = 47;
 
