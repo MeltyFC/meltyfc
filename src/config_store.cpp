@@ -414,7 +414,69 @@ ConfigValidationResult validateConfig(ConfigData& cfg) {
         result.issueCount++;
     }
 
+    // R15-3: ω²r-vs-sensor — legal configs must not rail the H3LIS ±400g accelerometer.
+    // centripetal_g = (maxRpm × 2π/60)² × rOuter_m / 9.81
+    // Margin 0.85 for vibration headroom → limit = 400 × 0.85 = 340g
+    {
+        constexpr float PI = 3.14159265358979f;
+        constexpr float G_ACCEL = 9.81f;
+        constexpr float H3LIS_LIMIT_G = 400.0f;
+        constexpr float MARGIN = 0.85f;
+        float omega = static_cast<float>(cfg.maxRpm) * 2.0f * PI / 60.0f;
+        float rOuterM = cfg.rOuter * 0.001f;  // mm → m
+        float centripG = (omega * omega * rOuterM) / G_ACCEL;
+        if (centripG > H3LIS_LIMIT_G * MARGIN) {
+            result.accelSaturation = true;
+            result.issueCount++;
+            // Don't auto-fix — reject. The user must reduce maxRpm or rOuter.
+        }
+    }
+
+    // R15-4: Window-vs-sampling floor — prevents stochastically dead translation.
+    // At LOOP_HZ, deg_per_sample = maxRpm × 360 / 60 / LOOP_HZ = maxRpm × 6 / LOOP_HZ.
+    // Rule: windowHalf ≥ 1.5 × deg_per_sample, otherwise the boost window is hit
+    // some revs and missed others → pulsing/dead translation with no error.
+    {
+        constexpr float LOOP_HZ = 2000.0f;
+        float degPerSample = static_cast<float>(cfg.maxRpm) * 6.0f / LOOP_HZ;
+        float minWindow = 1.5f * degPerSample;
+        if (cfg.windowHalf < minWindow) {
+            result.windowSamplingDead = true;
+            result.issueCount++;
+            // Don't auto-fix — reject. User must widen window or lower maxRpm.
+        }
+    }
+
     return result;
+}
+
+// ============================================================================
+// R15-5: Load-path per-field clamp
+// ============================================================================
+uint8_t clampConfigToRegistry(ConfigData& cfg) {
+    uint8_t clamped = 0;
+    for (size_t i = 0; i < PARAM_REGISTRY_SIZE; i++) {
+        const ParamDef& def = PARAM_REGISTRY[i];
+        if (def.flags & ParamFlags::READONLY)
+            continue;
+
+        float val = getParamFloat(cfg, def);
+        float original = val;
+
+        // Clamp to [min, max]
+        if (val < def.min) {
+            val = def.min;  // FLOOR-flagged params clamp UP here naturally
+        }
+        if (val > def.max) {
+            val = def.max;
+        }
+
+        if (val != original) {
+            setParamFloat(cfg, def, val);
+            clamped++;
+        }
+    }
+    return clamped;
 }
 
 } // namespace melty

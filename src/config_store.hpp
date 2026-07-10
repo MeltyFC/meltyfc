@@ -31,7 +31,14 @@ struct ConfigValidationResult {
     bool windowHalfTooLarge; // WINDOW_HALF > 90°
     bool channelCollision;   // Any two channel assignments collide
     bool numMotorsInvalid;   // NUM_DRIVE_MOTORS < 2 or > 4
+    bool accelSaturation;    // R15-3: ω²r exceeds H3LIS ±400g (with margin)
+    bool windowSamplingDead; // R15-4: windowHalf < 1.5× deg/sample → stochastic
 };
+
+// R15-5: Load-path per-field clamp — returns number of fields clamped.
+// FLOOR-flagged params clamp UP; everything else clamps to [min,max].
+// Call post-CRC, pre-cross-rules on loaded config.
+uint8_t clampConfigToRegistry(ConfigData& cfg);
 
 ConfigValidationResult validateConfig(ConfigData& cfg);
 

@@ -50,6 +50,14 @@ Default: 14 (typical 1103/1105 size motor)
 
 Start at 30°, increase if the bot won't translate fast enough, decrease if it wobbles.
 
+**R15-4 Sampling geometry constraint:** At the 2kHz loop rate, each sample covers
+`maxRpm × 6 / 2000` degrees of rotation. If `WINDOW_HALF` is narrower than 1.5× this
+value, the boost window will be hit on some revolutions and missed on others —
+producing pulsing or dead translation with no error reported. The firmware rejects
+configs that violate this floor. Examples:
+- 3000 RPM → 9°/sample → minimum windowHalf = 13.5°
+- 4000 RPM → 12°/sample → minimum windowHalf = 18°
+
 ### Throttle Mapping (`THROTTLE_SPIN_MAX`, `THROTTLE_CAP`)
 
 - `THROTTLE_SPIN_MAX` (default 0.75): maximum spin throttle from stick

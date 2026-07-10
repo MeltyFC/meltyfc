@@ -346,6 +346,104 @@ void test_throttle_mapping_never_1_to_47() {
 }
 
 // ============================================================================
+// R15-1: FAILSAFE never-auto-resume-armed property (mutation-survivable)
+// ============================================================================
+
+void test_failsafe_recovery_requires_full_gesture() {
+    // (a) FAILSAFE + link recovers + arm switch still HIGH → stays FAILSAFE
+    // This pins the never-auto-resume property: a refactor that auto-resumes
+    // from FAILSAFE would pass all other tests but fail this one.
+    auto pre = allGood();
+    // Link restored, LQ good, frames valid — but switch is HIGH (no low→high gesture)
+    pre.armSwitchCurrentlyHigh = true;
+    SafetyState safety = freshState();
+    auto state = updateArmState(ArmState::FAILSAFE, pre, safety, 0, defaultCfg());
+    TEST_ASSERT_EQUAL(ArmState::FAILSAFE, state);  // Must NOT auto-resume to ARMED
+}
+
+void test_failsafe_full_gesture_then_arms() {
+    // (b) FAILSAFE → link recovery → switch LOW (gesture start) → DISARMED
+    //     → switch HIGH × debounce → ARMED
+    SafetyConfig cfg = defaultCfg();
+    SafetyState safety = {};
+
+    // Start in FAILSAFE, link recovered, switch goes LOW
+    auto pre = allGood();
+    pre.armSwitchCurrentlyHigh = false;
+    auto state = updateArmState(ArmState::FAILSAFE, pre, safety, 0, cfg);
+    TEST_ASSERT_EQUAL(ArmState::DISARMED, state);  // Gesture accepted → DISARMED
+
+    // Now switch goes HIGH — begin arm debounce
+    pre.armSwitchCurrentlyHigh = true;
+    for (int i = 0; i < cfg.armDebounceFrames; i++) {
+        state = updateArmState(ArmState::DISARMED, pre, safety, 0, cfg);
+    }
+    TEST_ASSERT_EQUAL(ArmState::ARMED, state);  // Full gesture → ARMED
+}
+
+void test_failsafe_with_lvc_critical_blocks_rearm() {
+    // (c) FAILSAFE entered, lvcCritical simultaneously true → link recovers →
+    //     gesture → canArm STILL false (composition path: FAILSAFE+LVC)
+    SafetyConfig cfg = defaultCfg();
+    SafetyState safety = {};
+
+    // FAILSAFE state, link recovers, switch LOW — but lvcCritical is true
+    auto pre = allGood();
+    pre.armSwitchCurrentlyHigh = false;
+    pre.lvcCritical = true;
+
+    // Link recovery attempt: switch goes LOW
+    auto state = updateArmState(ArmState::FAILSAFE, pre, safety, 0, cfg);
+    // lvcCritical check fires BEFORE FAILSAFE recovery in updateArmState
+    // (the if-order composition path Fable verified)
+    // Either stays FAILSAFE or goes to ERROR — either way, not ARMED
+    TEST_ASSERT_TRUE(state == ArmState::FAILSAFE || state == ArmState::ERROR);
+
+    // Even if we somehow reach DISARMED, canArm refuses with lvcCritical
+    pre.armSwitchCurrentlyHigh = true;
+    safety.armHighCount = cfg.armDebounceFrames;
+    TEST_ASSERT_FALSE(canArm(pre, safety, cfg.armDebounceFrames));
+}
+
+// ============================================================================
+// R15-2: Frame-age freshness (staleness trigger — mutation-survivable)
+// ============================================================================
+
+void test_frame_age_just_under_failsafe_no_trigger() {
+    // age = failsafeMs - 1 → no failsafe (frames are fresh enough)
+    SafetyState safety = freshState();
+    SafetyConfig cfg = defaultCfg(); // failsafeMs = 500
+    auto pre = allGood();
+    auto state = updateArmState(ArmState::ARMED, pre, safety,
+                                cfg.failsafeMs - 1, cfg);  // 499ms
+    TEST_ASSERT_EQUAL(ArmState::ARMED, state);
+}
+
+void test_frame_age_just_over_failsafe_triggers() {
+    // age = failsafeMs + 1 → FAILSAFE (stale frames)
+    SafetyState safety = freshState();
+    SafetyConfig cfg = defaultCfg(); // failsafeMs = 500
+    auto pre = allGood();
+    auto state = updateArmState(ArmState::ARMED, pre, safety,
+                                cfg.failsafeMs + 1, cfg);  // 501ms
+    TEST_ASSERT_EQUAL(ArmState::FAILSAFE, state);
+}
+
+void test_frame_age_triggers_with_valid_frames() {
+    // Hold-last-frame RX simulation: frames are CRC-valid + all preconditions met,
+    // but age exceeds threshold. A mutant deleting the age check survives the
+    // suite while the bot holds last commands on a frozen link forever.
+    SafetyState safety = freshState();
+    SafetyConfig cfg = defaultCfg();
+    auto pre = allGood();  // Everything looks perfect — frames valid, LQ good
+    pre.frameValid = true;
+    pre.linkQuality = 100;
+    auto state = updateArmState(ArmState::ARMED, pre, safety,
+                                1000, cfg);  // 1 second stale
+    TEST_ASSERT_EQUAL(ArmState::FAILSAFE, state);  // Age overrides all-good
+}
+
+// ============================================================================
 // Runner
 // ============================================================================
 
@@ -412,6 +510,16 @@ int main() {
     RUN_TEST(test_choke_point_all_states);
     RUN_TEST(test_throttle_to_dshot_mapping);
     RUN_TEST(test_throttle_mapping_never_1_to_47);
+
+    // R15-1: FAILSAFE never-auto-resume-armed
+    RUN_TEST(test_failsafe_recovery_requires_full_gesture);
+    RUN_TEST(test_failsafe_full_gesture_then_arms);
+    RUN_TEST(test_failsafe_with_lvc_critical_blocks_rearm);
+
+    // R15-2: Frame-age freshness (staleness trigger)
+    RUN_TEST(test_frame_age_just_under_failsafe_no_trigger);
+    RUN_TEST(test_frame_age_just_over_failsafe_triggers);
+    RUN_TEST(test_frame_age_triggers_with_valid_frames);
 
     // Phase G: Choke NaN/Inf
     RUN_TEST(test_choke_nan_armed);

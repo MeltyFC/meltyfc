@@ -365,6 +365,112 @@ void test_defaults_pass_validation() {
     TEST_ASSERT_FALSE(result.numMotorsInvalid);
 }
 
+// ============================================================================
+// R15-3: ω²r-vs-sensor rule — accel saturation at legal configs
+// ============================================================================
+
+void test_validate_accel_saturation_3000rpm_60mm() {
+    // 3000 RPM @ rOuter 60mm = ~604g → exceeds 340g limit
+    ConfigData cfg;
+    cfg.maxRpm = 3000;
+    cfg.rOuter = 60.0f;
+    auto result = validateConfig(cfg);
+    TEST_ASSERT_TRUE(result.accelSaturation);
+}
+
+void test_validate_accel_saturation_4000rpm_30mm() {
+    // 4000 RPM @ rOuter 30mm = ~537g → exceeds 340g limit
+    ConfigData cfg;
+    cfg.maxRpm = 4000;
+    cfg.rOuter = 30.0f;
+    auto result = validateConfig(cfg);
+    TEST_ASSERT_TRUE(result.accelSaturation);
+}
+
+void test_validate_accel_saturation_4000rpm_60mm() {
+    // 4000 RPM @ rOuter 60mm = ~1074g → WAY over
+    ConfigData cfg;
+    cfg.maxRpm = 4000;
+    cfg.rOuter = 60.0f;
+    auto result = validateConfig(cfg);
+    TEST_ASSERT_TRUE(result.accelSaturation);
+}
+
+void test_validate_accel_default_passes() {
+    // Default 3200 RPM @ 28mm = ~321g → under 340g limit
+    ConfigData cfg;  // defaults: maxRpm=3200, rOuter=28
+    auto result = validateConfig(cfg);
+    TEST_ASSERT_FALSE(result.accelSaturation);
+}
+
+// ============================================================================
+// R15-4: Window-vs-sampling floor
+// ============================================================================
+
+void test_validate_window_sampling_dead_4000rpm_5deg() {
+    // 4000 RPM @ 2kHz = 12°/sample. windowHalf=5° < 1.5×12=18° → dead
+    ConfigData cfg;
+    cfg.maxRpm = 4000;
+    cfg.windowHalf = 5.0f;
+    auto result = validateConfig(cfg);
+    TEST_ASSERT_TRUE(result.windowSamplingDead);
+}
+
+void test_validate_window_sampling_dead_3000rpm_5deg() {
+    // 3000 RPM @ 2kHz = 9°/sample. windowHalf=5° < 1.5×9=13.5° → dead
+    ConfigData cfg;
+    cfg.maxRpm = 3000;
+    cfg.windowHalf = 5.0f;
+    auto result = validateConfig(cfg);
+    TEST_ASSERT_TRUE(result.windowSamplingDead);
+}
+
+void test_validate_window_sampling_default_passes() {
+    // Default 3200 RPM @ 30° window: 9.6°/sample, needs ≥14.4° → 30° passes
+    ConfigData cfg;
+    auto result = validateConfig(cfg);
+    TEST_ASSERT_FALSE(result.windowSamplingDead);
+}
+
+// ============================================================================
+// R15-5: Load-path per-field clamp
+// ============================================================================
+
+void test_clamp_config_legacy_failsafe_floor() {
+    // Legacy config with failsafeMs=50 defeats the 500ms FLOOR.
+    // clampConfigToRegistry must clamp it UP to 500.
+    ConfigData cfg;
+    cfg.failsafeMs = 50;  // Below FLOOR
+    uint8_t clamped = clampConfigToRegistry(cfg);
+    TEST_ASSERT_GREATER_THAN(0, clamped);
+    TEST_ASSERT_EQUAL_UINT16(500, cfg.failsafeMs);
+}
+
+void test_clamp_config_over_max_rpm() {
+    // maxRpm above registry max (10000) → clamp down
+    ConfigData cfg;
+    cfg.maxRpm = 15000;
+    uint8_t clamped = clampConfigToRegistry(cfg);
+    TEST_ASSERT_GREATER_THAN(0, clamped);
+    TEST_ASSERT_EQUAL_UINT16(10000, cfg.maxRpm);
+}
+
+void test_clamp_config_below_min_window() {
+    // windowHalf below registry min (5°) → clamp up
+    ConfigData cfg;
+    cfg.windowHalf = 1.0f;
+    uint8_t clamped = clampConfigToRegistry(cfg);
+    TEST_ASSERT_GREATER_THAN(0, clamped);
+    TEST_ASSERT_FLOAT_WITHIN(0.1f, 5.0f, cfg.windowHalf);
+}
+
+void test_clamp_config_defaults_untouched() {
+    // Default config should have zero fields clamped
+    ConfigData cfg;
+    uint8_t clamped = clampConfigToRegistry(cfg);
+    TEST_ASSERT_EQUAL_UINT8(0, clamped);
+}
+
 int main() {
     UNITY_BEGIN();
 
@@ -426,6 +532,23 @@ int main() {
 
     // CO-1: Defaults coherence — pins this forever
     RUN_TEST(test_defaults_pass_validation);
+
+    // R15-3: Accel saturation cross-rule
+    RUN_TEST(test_validate_accel_saturation_3000rpm_60mm);
+    RUN_TEST(test_validate_accel_saturation_4000rpm_30mm);
+    RUN_TEST(test_validate_accel_saturation_4000rpm_60mm);
+    RUN_TEST(test_validate_accel_default_passes);
+
+    // R15-4: Window-vs-sampling floor
+    RUN_TEST(test_validate_window_sampling_dead_4000rpm_5deg);
+    RUN_TEST(test_validate_window_sampling_dead_3000rpm_5deg);
+    RUN_TEST(test_validate_window_sampling_default_passes);
+
+    // R15-5: Load-path per-field clamp
+    RUN_TEST(test_clamp_config_legacy_failsafe_floor);
+    RUN_TEST(test_clamp_config_over_max_rpm);
+    RUN_TEST(test_clamp_config_below_min_window);
+    RUN_TEST(test_clamp_config_defaults_untouched);
 
     return UNITY_END();
 }
