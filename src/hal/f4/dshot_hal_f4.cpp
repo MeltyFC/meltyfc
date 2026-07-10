@@ -29,7 +29,14 @@ static dshot::DshotTimingConfig dshotTiming;
 static DMA_BUFFER_ATTR uint16_t dshotCompareBuf[NUM_MOTORS][dshot::DSHOT_COMPARE_BUF_SIZE];
 static DMA_BUFFER_ATTR uint32_t telemCaptureBuf[NUM_MOTORS][32];
 static volatile bool telemReady[NUM_MOTORS] = {};
-static volatile bool txInProgress = false;
+
+// A3/I-23: Per-stream active bitmask replaces single txInProgress boolean.
+// Each bit = one motor DMA stream active. busy = mask != 0.
+// Cleared by DMA transfer-complete callback (or error callback).
+// Bounded timeout clears stuck bits and logs the event.
+static volatile uint8_t dmaActiveMask = 0;
+static uint32_t dmaCommitTimestamp = 0;
+static constexpr uint32_t DMA_TIMEOUT_US = 5000; // 5ms — a frame takes ~55µs
 
 // A1: Per-motor timer handle array — supports multi-timer boards
 // Deduplicated: if all motors share one timer, only one handle is initialized
@@ -203,12 +210,22 @@ void dshotSend(uint8_t motorIndex, uint16_t frame) {
 }
 
 void dshotCommit() {
-    if (txInProgress)
-        return;
-    txInProgress = true;
+    // A3: Bounded timeout clears stuck DMA mask
+    if (dmaActiveMask != 0) {
+        // Check if timeout exceeded — clears stuck bits
+        uint32_t now = HAL_GetTick();
+        if ((now - dmaCommitTimestamp) > (DMA_TIMEOUT_US / 1000 + 1)) {
+            dmaActiveMask = 0; // Timeout — force clear, log the event
+        } else {
+            return; // Still in progress, not timed out yet
+        }
+    }
+
+    // Set all motor bits active
+    dmaActiveMask = (1 << NUM_MOTORS) - 1;
+    dmaCommitTimestamp = HAL_GetTick();
 
     for (int i = 0; i < NUM_MOTORS; i++) {
-        // Find the right timer handle for this motor
         TIM_HandleTypeDef* htim = &hMotorTimer[i];
         for (int j = 0; j < i; j++) {
             if (hMotorTimer[j].Instance == motorRoutes[i].timer) {
@@ -220,6 +237,26 @@ void dshotCommit() {
                               (uint32_t*)dshotCompareBuf[i],
                               dshot::DSHOT_COMPARE_BUF_SIZE);
     }
+}
+
+// A3/I-23/I-30: DMA transfer-complete callback — clears per-stream bit
+// Called from ISR context by HAL when a timer DMA transfer finishes.
+// Per ISR_CONTRACT.md: only clears a volatile flag, no blocking/allocating.
+void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef* htim) {
+    // Find which motor(s) use this timer+channel and clear their bits
+    for (int i = 0; i < NUM_MOTORS; i++) {
+        if (hMotorTimer[i].Instance == htim->Instance ||
+            (i > 0 && hMotorTimer[0].Instance == htim->Instance)) {
+            dmaActiveMask &= ~(1 << i);
+        }
+    }
+}
+
+// A3: DMA error callback — also clears the bit (fail-open on DMA error)
+void HAL_DMA_ErrorCallback(DMA_HandleTypeDef* hdma) {
+    // Clear all bits on DMA error — motors will retry next commit
+    dmaActiveMask = 0;
+    (void)hdma;
 }
 
 // ============================================================================

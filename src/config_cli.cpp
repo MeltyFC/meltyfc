@@ -244,7 +244,13 @@ int formatHelp(char* buf, size_t bufLen) {
 }
 
 int formatVersion(char* buf, size_t bufLen) {
+    // E5/F-29: Build identity consumed — git hash + build date from compile-time defines
+#if defined(MELTYFC_GIT_HASH) && defined(MELTYFC_BUILD_DATE)
+    return snprintf(buf, bufLen, "MeltyFC v0.1.0 %s built %s (schema %d)\r\n",
+                    MELTYFC_GIT_HASH, MELTYFC_BUILD_DATE, ConfigData::SCHEMA_VERSION);
+#else
     return snprintf(buf, bufLen, "MeltyFC v0.1.0-dev (schema %d)\r\n", ConfigData::SCHEMA_VERSION);
+#endif
 }
 
 // ============================================================================

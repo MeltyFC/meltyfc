@@ -25,7 +25,9 @@ static dshot::DshotTimingConfig dshotTiming;
 static DMA_BUFFER_ATTR uint16_t dshotCompareBuf[NUM_MOTORS][dshot::DSHOT_COMPARE_BUF_SIZE];
 static DMA_BUFFER_ATTR uint32_t telemCaptureBuf[NUM_MOTORS][32];
 static volatile bool telemReady[NUM_MOTORS] = {};
-static volatile bool txInProgress = false;
+static volatile uint8_t dmaActiveMask = 0;
+static uint32_t dmaCommitTimestamp = 0;
+static constexpr uint32_t DMA_TIMEOUT_US = 5000;
 
 static TIM_HandleTypeDef hMotorTimer[NUM_MOTORS];
 static DMA_HandleTypeDef hDmaMotor[NUM_MOTORS];
@@ -161,8 +163,16 @@ void dshotSend(uint8_t motorIndex, uint16_t frame) {
 }
 
 void dshotCommit() {
-    if (txInProgress) return;
-    txInProgress = true;
+    if (dmaActiveMask != 0) {
+        uint32_t now = HAL_GetTick();
+        if ((now - dmaCommitTimestamp) > (DMA_TIMEOUT_US / 1000 + 1)) {
+            dmaActiveMask = 0;
+        } else {
+            return;
+        }
+    }
+    dmaActiveMask = (1 << NUM_MOTORS) - 1;
+    dmaCommitTimestamp = HAL_GetTick();
     for (int i = 0; i < NUM_MOTORS; i++) {
         TIM_HandleTypeDef* htim = &hMotorTimer[i];
         for (int j = 0; j < i; j++)

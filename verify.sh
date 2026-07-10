@@ -288,12 +288,10 @@ if [ -n "$I2_HITS" ]; then
     fail "Invariant I-2: no option-byte code may exist"
 fi
 
-# Pinmap warnings — all targets
+# Pinmap warnings — BF_CONFIG_DERIVED targets
+# (PLACEHOLDER gate moved to A6/I-40 section above — it FAILS, not warns)
 for TARGET_DIR in targets/*/; do
     TARGET_NAME=$(basename "$TARGET_DIR")
-    if grep -q "PINMAP_IS_PLACEHOLDER" "${TARGET_DIR}pinmap.h" 2>/dev/null; then
-        warn "${TARGET_NAME}: Pinmap is PLACEHOLDER — do NOT flash"
-    fi
     if grep -q "PINMAP_IS_BF_CONFIG_DERIVED" "${TARGET_DIR}pinmap.h" 2>/dev/null; then
         warn "${TARGET_NAME}: Pinmap is BF_CONFIG_DERIVED — verify on live dump at arrival"
     fi
