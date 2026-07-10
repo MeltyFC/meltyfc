@@ -29,7 +29,7 @@ void gpioInitUnused() {
     // gpio.Mode = GPIO_MODE_ANALOG;
     // gpio.Pull = GPIO_NOPULL;
     // gpio.Pin = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_3; // unused pins
-    // HAL_GPIO_Init(GPIOD, &gpio);
+    // HAL_GPIO_Init(GPIOD, &gpio); // BARE-GPIO-OK: commented-out template
     //
     // For now: no-op. This function EXISTS and is CALLED — the pin list
     // gets filled when the board's actual routing is known.

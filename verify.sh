@@ -144,7 +144,7 @@ for TARGET in "${ALL_TARGETS[@]}"; do
     # Resource budget from arm-none-eabi-size (reliable, not grep on pio output)
     ELF_FILE=".pio/build/${TARGET}/firmware.elf"
     if [ -f "$ELF_FILE" ]; then
-        SIZE_OUTPUT=$(arm-none-eabi-size "$ELF_FILE" 2>/dev/null || true)
+        SIZE_OUTPUT=$(arm-none-eabi-size "$ELF_FILE" 2>/dev/null || true) # ALLOW-TRUE: size tool may not be installed
         if [ -n "$SIZE_OUTPUT" ]; then
             # arm-none-eabi-size output: text data bss dec hex filename
             FLASH_USED=$(echo "$SIZE_OUTPUT" | tail -1 | awk '{print $1 + $2}')
@@ -243,7 +243,7 @@ pass "All ${TARGETS_PASSED}/${TARGETS_TOTAL} targets built successfully"
 # ----------------------------------------------------------------
 echo ""
 echo "--- Step 3: Static analysis ---"
-# I-18: Tool failure = gate failure (never swallow with || true)
+# I-18: Tool failure = gate failure (never swallow with bare-or-true) # ALLOW-TRUE: comment reference only
 CPPCHECK_OUTPUT=$(pio check --skip-packages -e crux_f405hd 2>&1)
 CPPCHECK_EXIT=$?
 if [ $CPPCHECK_EXIT -ne 0 ] && [ $CPPCHECK_EXIT -ne 1 ]; then
@@ -251,7 +251,7 @@ if [ $CPPCHECK_EXIT -ne 0 ] && [ $CPPCHECK_EXIT -ne 1 ]; then
     echo "$CPPCHECK_OUTPUT" | tail -10
     fail "cppcheck tool CRASHED (exit $CPPCHECK_EXIT) — I-18: gate cannot pass on failed tool"
 fi
-CPPCHECK_ERRORS=$(echo "$CPPCHECK_OUTPUT" | grep -c "\[error\]" || true)
+CPPCHECK_ERRORS=$(echo "$CPPCHECK_OUTPUT" | grep -c "\[error\]" || true) # ALLOW-TRUE: grep -c returns 1 on no-match
 if [ "$CPPCHECK_ERRORS" -gt 0 ]; then
     echo "$CPPCHECK_OUTPUT" | grep "\[error\]"
     fail "cppcheck found ${CPPCHECK_ERRORS} error(s)"
@@ -282,7 +282,7 @@ echo "--- Step 5: Architecture boundary audit ---"
 # 5a. Core modules must not include hardware HAL
 CORE_FILES=$(find src/ -maxdepth 1 -name '*.cpp' -o -name '*.hpp' | grep -v main.cpp | sort)
 BOUNDARY_VIOLATIONS=$(grep -rlE '#include .*(stm32|hal_|cmsis|Arduino)' \
-    $CORE_FILES 2>/dev/null || true)
+    $CORE_FILES 2>/dev/null || true) # ALLOW-TRUE: no-match is the pass
 
 if [ -n "$BOUNDARY_VIOLATIONS" ]; then
     echo "Hardware includes found in pure-logic modules:"
@@ -292,7 +292,7 @@ fi
 
 # 5b. Core modules must not include hal/ (only hal/common/ via the HAL interface)
 CORE_HAL_INCLUDE=$(grep -rlE '#include.*"hal/(f4|f7|h7)/' \
-    $CORE_FILES 2>/dev/null || true)
+    $CORE_FILES 2>/dev/null || true) # ALLOW-TRUE: no-match is the pass
 if [ -n "$CORE_HAL_INCLUDE" ]; then
     echo "Core module includes family-specific HAL:"
     echo "$CORE_HAL_INCLUDE"
@@ -300,9 +300,9 @@ if [ -n "$CORE_HAL_INCLUDE" ]; then
 fi
 
 # 5c. HAL families must not cross-include
-F4_CROSS=$(grep -rlE '#include.*"hal/(f7|h7)/' src/hal/f4/ 2>/dev/null || true)
-F7_CROSS=$(grep -rlE '#include.*"hal/(f4|h7)/' src/hal/f7/ 2>/dev/null || true)
-H7_CROSS=$(grep -rlE '#include.*"hal/(f4|f7)/' src/hal/h7/ 2>/dev/null || true)
+F4_CROSS=$(grep -rlE '#include.*"hal/(f7|h7)/' src/hal/f4/ 2>/dev/null || true) # ALLOW-TRUE: no-match is the pass
+F7_CROSS=$(grep -rlE '#include.*"hal/(f4|h7)/' src/hal/f7/ 2>/dev/null || true) # ALLOW-TRUE: no-match is the pass
+H7_CROSS=$(grep -rlE '#include.*"hal/(f4|f7)/' src/hal/h7/ 2>/dev/null || true) # ALLOW-TRUE: no-match is the pass
 if [ -n "$F4_CROSS" ] || [ -n "$F7_CROSS" ] || [ -n "$H7_CROSS" ]; then
     echo "Cross-family HAL includes found:"
     echo "$F4_CROSS" "$F7_CROSS" "$H7_CROSS"
@@ -319,7 +319,7 @@ echo "--- Step 6: Rocket invariants ---"
 
 # I-1: Application code never writes internal flash
 I1_HITS=$(grep -rlE 'FLASH_CR|FLASH_KEYR|HAL_FLASH_Program|HAL_FLASHEx_Erase' \
-    src/ include/ 2>/dev/null || true)
+    src/ include/ 2>/dev/null || true) # ALLOW-TRUE: no-match is the pass
 if [ -n "$I1_HITS" ]; then
     echo "I-1 VIOLATION — internal flash write code found:"
     echo "$I1_HITS"
@@ -328,7 +328,7 @@ fi
 
 # I-2: No option-byte code is ever linked
 I2_HITS=$(grep -rlE 'OPTCR|OPTKEYR|OB_RDP|FLASH_OB_' \
-    src/ include/ targets/ 2>/dev/null || true)
+    src/ include/ targets/ 2>/dev/null || true) # ALLOW-TRUE: no-match is the pass
 if [ -n "$I2_HITS" ]; then
     echo "I-2 VIOLATION — option-byte code found:"
     echo "$I2_HITS"
@@ -358,7 +358,7 @@ fi
 # __HAL_RCC_TIM clock enables, ifdef TIM8 guards. Everything else = hardcoded routing.
 I21_VIOLATIONS=$(grep -rn 'TIM[0-9]' src/hal/*/dshot_hal_*.cpp src/hal/*/ws2812_hal_*.cpp 2>/dev/null \
     | grep -v 'enableTimerClock\|timerAlready\|== TIM1\|== TIM8\|ifdef TIM\|__HAL_RCC_TIM\|DMA_REQUEST_TIM\|TIM_CHANNEL\|TIM_BDTR\|TIM_OCMODE\|TIM_HandleTypeDef\|//\|TIMER_PIN\|hMotorTimer\|DSHOT_BITRATE' \
-    || true)
+    || true) # ALLOW-TRUE: no-match is the pass
 if [ -n "$I21_VIOLATIONS" ]; then
     echo "I-21 VIOLATION — direct timer instance in HAL (should use route table):"
     echo "$I21_VIOLATIONS"
@@ -367,7 +367,7 @@ fi
 
 # B1/CO-4: Choke-point gates — motor authority must flow through safety.cpp only
 CHOKE_LEAK=$(grep -rn 'chokeMotorOutput\|throttleToDshot' \
-    src/ 2>/dev/null | grep -v 'safety\.\|motors_dshot\.\|main\.cpp\|test/' || true)
+    src/ 2>/dev/null | grep -v 'safety\.\|motors_dshot\.\|main\.cpp\|test/' || true) # ALLOW-TRUE: no-match is the pass
 if [ -n "$CHOKE_LEAK" ]; then
     echo "CO-4 VIOLATION — motor authority function called outside approved files:"
     echo "$CHOKE_LEAK"
@@ -376,7 +376,7 @@ fi
 
 # Safety-tier gate: no MELTYFC_TIER/MELTYFC_HAS inside safety-critical code
 TIER_IN_SAFETY=$(grep -n 'MELTYFC_TIER\|MELTYFC_HAS' \
-    src/safety.cpp src/safety.hpp 2>/dev/null || true)
+    src/safety.cpp src/safety.hpp 2>/dev/null || true) # ALLOW-TRUE: no-match is the pass
 if [ -n "$TIER_IN_SAFETY" ]; then
     echo "TIER GATE VIOLATION — feature tier guard found in safety code:"
     echo "$TIER_IN_SAFETY"
@@ -384,6 +384,101 @@ if [ -n "$TIER_IN_SAFETY" ]; then
 fi
 
 pass "Rocket invariants (I-1, I-2) + pinmap warnings + safety-tier gate"
+
+# ----------------------------------------------------------------
+# 6b. Gate Matrix (G-2 through G-8)
+# ----------------------------------------------------------------
+echo ""
+echo "--- Step 6b: Gate Matrix ---"
+
+# G-2: Peripheral-literal gate — bare TIM/ADC/USART/SPI/I2C literals in HAL/src
+# Peripheral instances come from pinmap defines, period.
+G2_VIOLATIONS=$(grep -rnE '\bTIM[0-9]+\b|\bADC[1-3]\b|\bUSART[0-9]\b|\bUART[0-9]\b|\bSPI[0-9]\b|\bI2C[0-9]\b' \
+    src/hal/ src/ 2>/dev/null \
+    | grep -v 'pinmap\.h\|target\.h\|// PERIPH-LITERAL-OK' \
+    | grep -v 'enableTimerClock\|timerAlready\|== TIM1\|== TIM8\|ifdef TIM\|__HAL_RCC_\|DMA_REQUEST_TIM\|MOTOR._TIMER\|MOTOR._DMA\|VBAT_ADC_INSTANCE\|LED_STRIP_TIMER' \
+    | grep -v 'TIM_CHANNEL\|TIM_BDTR\|TIM_OCMODE\|TIM_HandleTypeDef\|TIM_DMA_ID\|TIM_COUNTERMODE\|TIM_CLOCKDIVISION\|TIM_AUTORELOAD\|TIM_ICPOLARITY\|TIM_ICSELECTION\|TIM_ICPSC\|TIM_OCFAST\|TIM_OCPOLARITY\|TIM_OCNPOLARITY\|TIM_OCIDLESTATE' \
+    | grep -v 'ADC_CHANNEL\|ADC_RESOLUTION\|ADC_CLOCK\|ADC_DATAALIGN\|ADC_SCAN\|ADC_EOC\|ADC_SAMPLETIME\|ADC_CALIB\|ADC_SINGLE\|ADC_REGULAR\|ADC_OFFSET\|ADC_CONVERSIONDATA\|ADC_OVR\|ADC_HandleTypeDef\|HAL_ADC\|HAL_ADCEx' \
+    | grep -v 'test/\|\.pio/' \
+    || true) # ALLOW-TRUE: no-match is the pass
+if [ -n "$G2_VIOLATIONS" ]; then
+    echo "G-2 VIOLATION — bare peripheral literal (must come from pinmap defines):"
+    echo "$G2_VIOLATIONS" | head -10
+    fail "G-2: peripheral instances must come from pinmap defines, not hardcoded"
+fi
+pass "G-2: Peripheral-literal gate"
+
+# G-3: Safety-test manifest — required test function names
+REQUIRED_SAFETY_TESTS=(
+    "test_failsafe_recovery_requires_full_gesture"
+    "test_frame_age_just_over_failsafe_triggers"
+    "test_choke_nan_armed"
+    "test_defaults_pass_validation"
+    "test_cannot_arm_lvc_critical"
+    "test_clamp_config_legacy_failsafe_floor"
+    "test_validate_accel_saturation_3000rpm_60mm"
+    "test_failsafe_with_lvc_critical_blocks_rearm"
+    "test_frame_age_triggers_with_valid_frames"
+)
+G3_MISSING=""
+for TEST_NAME in "${REQUIRED_SAFETY_TESTS[@]}"; do
+    if ! grep -rq "$TEST_NAME" test/ 2>/dev/null; then
+        G3_MISSING="${G3_MISSING} ${TEST_NAME}"
+    fi
+done
+if [ -n "$G3_MISSING" ]; then
+    echo "G-3 VIOLATION — required safety tests missing from suite:"
+    echo "$G3_MISSING"
+    fail "G-3: safety properties must have pinned tests"
+fi
+pass "G-3: Safety-test manifest (${#REQUIRED_SAFETY_TESTS[@]} required tests present)"
+
+# G-4: Bare HAL_GPIO_Init gate — must go through meltyGpioInit wrapper
+G4_BARE=$(grep -rn 'HAL_GPIO_Init(' src/hal/ 2>/dev/null \
+    | grep -v 'gpio_port_clock\.h\|gpio_init\.h\|meltyGpioInit\|// BARE-GPIO-OK' \
+    || true) # ALLOW-TRUE: no-match is the pass
+if [ -n "$G4_BARE" ]; then
+    echo "G-4 VIOLATION — bare HAL_GPIO_Init (use meltyGpioInit wrapper):"
+    echo "$G4_BARE" | head -10
+    fail "G-4: all GPIO init must go through meltyGpioInit (gpioEnablePortClock + HAL_GPIO_Init)"
+fi
+pass "G-4: GPIO init wrapper gate"
+
+# G-5: pipe-true allowlist — every pipe-true must carry ALLOW-TRUE: reason
+# (G-5 gate uses "pipe-true" in prose to avoid matching its own grep pattern)
+G5_UNANNOTATED=$(grep -n '|| true' verify.sh \
+    | grep -v 'ALLOW-TRUE:\|G-5.*allowlist\|G-5 VIOLATION\|G-5:\|G5_UNANNOTATED' \
+    || true) # ALLOW-TRUE: self-reference meta-check
+if [ -n "$G5_UNANNOTATED" ]; then
+    echo "G-5 VIOLATION — unannotated pipe-true in verify.sh:"
+    echo "$G5_UNANNOTATED"
+    fail "G-5: every pipe-true must have ALLOW-TRUE: reason"
+fi
+pass "G-5: pipe-true allowlist self-policing"
+
+# G-8: DMA-mode explicitness — no DMA_CIRCULAR, and every DMA init must have Mode=
+G8_CIRCULAR=$(grep -rn 'DMA_CIRCULAR' src/hal/ 2>/dev/null \
+    || true) # ALLOW-TRUE: no-match is the pass
+if [ -n "$G8_CIRCULAR" ]; then
+    echo "G-8 VIOLATION — DMA_CIRCULAR found in HAL (I-3: never circular):"
+    echo "$G8_CIRCULAR"
+    fail "G-8: DMA must never use circular mode"
+fi
+# Check every DMA init block has explicit Mode assignment
+G8_NO_MODE=$(grep -rlE 'DMA_HandleTypeDef|hDma' src/hal/ 2>/dev/null | while read f; do
+    # Files with DMA init should have .Init.Mode =
+    if grep -q 'HAL_DMA_Init' "$f" 2>/dev/null; then
+        if ! grep -q '\.Init\.Mode' "$f" 2>/dev/null; then
+            echo "$f: DMA init without explicit Mode assignment"
+        fi
+    fi
+done || true) # ALLOW-TRUE: no-match is the pass
+if [ -n "$G8_NO_MODE" ]; then
+    echo "G-8 VIOLATION — DMA init block lacks explicit Mode assignment:"
+    echo "$G8_NO_MODE"
+    fail "G-8: every DMA init must have explicit .Init.Mode = DMA_NORMAL"
+fi
+pass "G-8: DMA-mode explicitness gate"
 
 # ----------------------------------------------------------------
 # 7. Symbol-floor gate (core wiring check)
@@ -396,7 +491,7 @@ echo "--- Step 7: Symbol-floor gate ---"
 SYMBOL_GATE_ENFORCE=0
 CORE_SYMBOLS="melty_setup melty_loop"
 # R8 Class C gate: warn on bare-statement Wire/storage calls (integration rule C)
-BARE_WIRE=$(grep -rn 'Wire\.endTransmission()\s*;' src/ 2>/dev/null | grep -v '//' || true)
+BARE_WIRE=$(grep -rn 'Wire\.endTransmission()\s*;' src/ 2>/dev/null | grep -v '//' || true) # ALLOW-TRUE: no-match is the pass
 if [ -n "$BARE_WIRE" ]; then
     warn "R8 Class C: bare Wire.endTransmission() — return value must feed health flag"
 fi

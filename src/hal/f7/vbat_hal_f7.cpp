@@ -6,6 +6,7 @@
 #ifndef NATIVE_BUILD
 #include "hal/common/vbat_hal.h"
 #include "hal/common/gpio_port_clock.h"
+#include "hal/common/gpio_init.h"
 #ifdef STM32F7xx
 #include "stm32f7xx_hal.h"
 #include "target.h"
@@ -29,13 +30,12 @@ void vbatInit() {
     adcInitialized = false;
 
 #if defined(HAS_VBAT_SENSE) && HAS_VBAT_SENSE
-    // D1: GPIO analog input
-    gpioEnablePortClock(VBAT_GPIO_PORT);
+    // G-4: GPIO init through wrapper (clock enable + DSB + init)
     GPIO_InitTypeDef gpio = {};
     gpio.Pin = VBAT_GPIO_PIN;
     gpio.Mode = GPIO_MODE_ANALOG;
     gpio.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(VBAT_GPIO_PORT, &gpio);
+    meltyGpioInit(VBAT_GPIO_PORT, &gpio);
 
     if (VBAT_ADC_INSTANCE == ADC1) __HAL_RCC_ADC1_CLK_ENABLE();
 

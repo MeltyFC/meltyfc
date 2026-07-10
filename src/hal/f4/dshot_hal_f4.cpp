@@ -10,6 +10,7 @@
 #include "hal/common/dshot_hal.h"
 #include "hal/common/dma_buf.h"
 #include "hal/common/gpio_port_clock.h"
+#include "hal/common/gpio_init.h"
 #include "hal/common/timer_clock.h"
 #include "dshot_common.hpp"
 
@@ -163,17 +164,14 @@ void dshotInit() {
         // F-27: HAL return check
         if (HAL_TIM_PWM_ConfigChannel(htim, &oc, route.channel) != HAL_OK) while(1) {}
 
-        // A2/I-25: Enable GPIO port clock BEFORE HAL_GPIO_Init
-        gpioEnablePortClock(route.gpioPort);
-
-        // Configure GPIO with correct AF
+        // G-4: GPIO init through wrapper (clock enable + DSB + init in one call)
         GPIO_InitTypeDef gpio = {};
         gpio.Pin = route.gpioPin;
         gpio.Mode = GPIO_MODE_AF_PP;
         gpio.Pull = GPIO_NOPULL;
         gpio.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
         gpio.Alternate = route.gpioAF;
-        HAL_GPIO_Init(route.gpioPort, &gpio);
+        meltyGpioInit(route.gpioPort, &gpio);
 
         // DMA configuration — I-3: explicit DMA_NORMAL
         hDmaMotor[i].Instance = route.dmaStream;
