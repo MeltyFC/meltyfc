@@ -6,6 +6,7 @@
 
 #include "hal/common/ws2812_hal.h"
 #include "hal/common/dma_buf.h"
+#include "hal/common/gpio_port_clock.h"
 
 #ifdef STM32H7xx
 #include "stm32h7xx_hal.h"
@@ -33,10 +34,20 @@ static DMA_HandleTypeDef hDma;
 
 // DMAMUX request ID for LED timer (from H743 ref manual)
 // TIM4_CH3 (MicoAir LED pin PD14) → DMAMUX request depends on channel
-static constexpr uint32_t DMAMUX_LED_REQUEST = 52; // TIM4_CH3 — verify from ref manual
+
 
 void ws2812Init(uint16_t maxPixels) {
     DMA_BUFFER_ASSERT(compareBuf);
+    
+    // A7: GPIO port clock + pin init from route defines
+    gpioEnablePortClock(LED_STRIP_GPIO_PORT);
+    GPIO_InitTypeDef ledGpio = {};
+    ledGpio.Pin = LED_STRIP_GPIO_PIN;
+    ledGpio.Mode = GPIO_MODE_AF_PP;
+    ledGpio.Pull = GPIO_NOPULL;
+    ledGpio.Speed = GPIO_SPEED_FREQ_HIGH;
+    ledGpio.Alternate = LED_STRIP_AF;
+    HAL_GPIO_Init(LED_STRIP_GPIO_PORT, &ledGpio);
     numPx = (maxPixels > MAX_PX) ? MAX_PX : maxPixels;
 
     uint32_t len = numPx * 24 + WS_RESET;
@@ -63,7 +74,7 @@ void ws2812Init(uint16_t maxPixels) {
 
     // DMAMUX routing
     hDma.Instance = DMA1_Stream5;  // Pick an unused stream
-    hDma.Init.Request = DMAMUX_LED_REQUEST;
+    hDma.Init.Request = LED_STRIP_DMAMUX_REQUEST;
     hDma.Init.Direction = DMA_MEMORY_TO_PERIPH;
     hDma.Init.PeriphInc = DMA_PINC_DISABLE;
     hDma.Init.MemInc = DMA_MINC_ENABLE;

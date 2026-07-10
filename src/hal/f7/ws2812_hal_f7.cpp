@@ -6,6 +6,7 @@
 
 #include "hal/common/ws2812_hal.h"
 #include "hal/common/dma_buf.h"
+#include "hal/common/gpio_port_clock.h"
 
 #ifdef STM32F7xx
 #include "stm32f7xx_hal.h"
@@ -31,6 +32,16 @@ static DMA_HandleTypeDef hDmaLed;
 
 void ws2812Init(uint16_t maxPixels) {
     DMA_BUFFER_ASSERT(compareBuf);
+    
+    // A7: GPIO port clock + pin init from route defines
+    gpioEnablePortClock(LED_STRIP_GPIO_PORT);
+    GPIO_InitTypeDef ledGpio = {};
+    ledGpio.Pin = LED_STRIP_GPIO_PIN;
+    ledGpio.Mode = GPIO_MODE_AF_PP;
+    ledGpio.Pull = GPIO_NOPULL;
+    ledGpio.Speed = GPIO_SPEED_FREQ_HIGH;
+    ledGpio.Alternate = LED_STRIP_AF;
+    HAL_GPIO_Init(LED_STRIP_GPIO_PORT, &ledGpio);
     numPx = (maxPixels > MAX_PX) ? MAX_PX : maxPixels;
 
     uint32_t len = numPx * 24 + WS_RESET;
