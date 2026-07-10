@@ -128,3 +128,39 @@ Flag specifically: SMPS transition timing, VOS0 region constraints, any DMAMUX d
 *Audit performed against actual ES PDFs obtained from Wayback Machine archives.*
 *PDFs archived in docs/pinmap_sources/ for provenance.*
 *I-20: re-run this audit on any peripheral configuration change.*
+
+---
+
+## ERRATA RE-WALK v2 (2026-07-10) — Current Revisions
+
+### New Sources Banked (via Fable):
+- **ES0491 Rev 9 (H72x)** — H723/H725 errata sheet OBTAINED
+  - ADC3 12-bit on H72x (NOT 16-bit) — confirms D1 change needed
+  - UART-DMA bit-20 workaround noted for E2 CRSF driver
+  - I2C kernel clock >= 10MHz for Fast mode (same as F72x)
+  - Revision gate: 0x1000 (rev Z), 0x1001 (rev A)
+
+- **ES0360 Rev 5 (F72x)** — the never-walked family, NOW WALKED
+  - ZERO timer errata, ZERO DMA errata (both clean for DShot — cited)
+  - §2.2.1: Internal noise vs ADC — VBAT accuracy impact noted
+  - §2.9.1: I2C kernel >= 10MHz for Fast mode
+  - §2.9.2: Spurious BERR master — same clear+continue recipe as H7
+  - §2.1.1: M7 write-through corruption — N/A (default SRAM is WB)
+
+- **ES0287 Rev 6 (F411)** — updated from Rev 2
+  - **§2.2.7: Delay after RCC clock enable — AFFECTS gpioEnablePortClock()
+    FIXED: DSB added to the helper (the fix for F-03 would have shipped
+    with its own erratum without this)**
+  - §2.6.3: Consecutive compare missed — N/A (DShot duty never triggers)
+  - §2.6.1: PWM re-enabled after break — N/A (AOE never set)
+  - §2.10.1: USART idle-frame — design note for E2 (use DMA ring, not idle-line)
+  - §2.12.1: OTG_FS TxFIFO corruption — implementation note for E3 CDC
+
+### Errata-Unwalked Asterisks Removed:
+- F722: ES0360 Rev 5 walked → asterisk removed
+- H725: ES0491 Rev 9 walked → asterisk removed
+
+### Remaining (archived revisions already walked, delta risk low):
+- ES0182 current (F405) — have Rev 14, check for new errata only
+- ES0290 current (F745) — have Rev 7, check for new errata only
+- ES0392 current (H743) — have Rev 13, check for new errata only
