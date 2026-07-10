@@ -175,9 +175,10 @@ size_t crsfBuildFlightMode(uint8_t* outBuf, size_t bufLen, const char* modeText)
     if (textLen > 14)
         textLen = 14;
 
-    // sync + length + type + dest + origin + text + null + crc
-    size_t payloadLen = 1 + 1 + 1 + textLen + 1; // type + dest + origin + text + null
-    size_t frameSize = 2 + payloadLen + 1;       // sync + length + payload + crc
+    // C4/I-35: Flight mode is a standard-class frame: type + payload + CRC
+    // No dest/origin bytes (those are for extended frames only)
+    size_t payloadLen = 1 + textLen + 1; // type + text + null
+    size_t frameSize = 2 + payloadLen + 1; // sync + length + payload + crc
     if (bufLen < frameSize)
         return 0;
 
@@ -186,8 +187,6 @@ size_t crsfBuildFlightMode(uint8_t* outBuf, size_t bufLen, const char* modeText)
     outBuf[idx++] = static_cast<uint8_t>(payloadLen + 1); // length includes CRC
 
     outBuf[idx++] = CRSF_FRAMETYPE_FLIGHT_MODE;
-    outBuf[idx++] = CRSF_ADDRESS_TX;
-    outBuf[idx++] = CRSF_ADDRESS_FC;
 
     memcpy(&outBuf[idx], modeText, textLen);
     idx += textLen;
