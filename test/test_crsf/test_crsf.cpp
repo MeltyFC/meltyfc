@@ -170,6 +170,24 @@ void test_build_buffer_too_small() {
     TEST_ASSERT_EQUAL(0, crsfBuildBattery(buf, sizeof(buf), 11.1f, 5.0f, 0, 0));
 }
 
+// Phase D: F-05 clamp edge tests
+void test_channel_to_float_clamp_low() {
+    float val = crsfChannelToFloat(0);
+    TEST_ASSERT_TRUE(val >= -1.0f);
+}
+void test_channel_to_float_clamp_high() {
+    float val = crsfChannelToFloat(2047);
+    TEST_ASSERT_TRUE(val <= 1.0f);
+}
+void test_channel_to_throttle_clamp_zero() {
+    float val = crsfChannelToThrottle(0);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, val);
+}
+void test_channel_to_throttle_clamp_max() {
+    float val = crsfChannelToThrottle(2047);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 1.0f, val);
+}
+
 // ============================================================================
 // Main
 // ============================================================================
@@ -202,6 +220,12 @@ int main() {
     RUN_TEST(test_build_flight_mode_truncates_long_text);
     RUN_TEST(test_build_battery);
     RUN_TEST(test_build_buffer_too_small);
+
+    // Phase D: F-05 clamp edge cases
+    RUN_TEST(test_channel_to_float_clamp_low);
+    RUN_TEST(test_channel_to_float_clamp_high);
+    RUN_TEST(test_channel_to_throttle_clamp_zero);
+    RUN_TEST(test_channel_to_throttle_clamp_max);
 
     return UNITY_END();
 }

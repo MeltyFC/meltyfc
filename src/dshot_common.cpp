@@ -176,10 +176,10 @@ bool isEdtExtendedFrame(uint16_t decodedFrame) {
     uint16_t raw12 = decodedFrame >> 4;
     // In EDT, frame type 0 = eRPM. Nonzero = extended data.
     // The exponent field doubles as the frame type indicator for EDT.
-    // For basic bidir (non-EDT), all frames are eRPM.
-    // For now, return false (no EDT filtering) — extend when EDT is implemented.
-    (void)raw12;
-    return false;
+    // EDT type is in the top 4 bits of raw12 (bits 11:8 of the 12-bit payload)
+    // Type 0 = eRPM period. Type 1-15 = extended data (temp, voltage, current, etc.)
+    uint8_t edtType = (raw12 >> 8) & 0x0F;
+    return edtType != 0;
 }
 
 bool validateTelemetryCrc(uint16_t decodedFrame) {

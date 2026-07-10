@@ -341,6 +341,19 @@ void test_compare_buffer_17th_slot() {
     TEST_ASSERT_EQUAL_UINT16(0, buf[16]);
 }
 
+// Phase D: F-04 EDT + F-03 start-bit tests
+void test_edt_extended_frame_discarded() {
+    uint16_t edtFrame = 0x1234;
+    TEST_ASSERT_TRUE(isEdtExtendedFrame(edtFrame));
+    uint16_t erpmFrame = 0x0ABC;
+    TEST_ASSERT_FALSE(isEdtExtendedFrame(erpmFrame));
+}
+
+void test_gcr_missing_start_bit_rejected() {
+    uint32_t noStart = (25 << 0) | (27 << 5) | (18 << 10) | (19 << 15);
+    TEST_ASSERT_EQUAL_HEX16(0xFFFF, gcrDecode(noStart));
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -400,6 +413,10 @@ int main() {
     RUN_TEST(test_erpm_mantissa_exponent);
     RUN_TEST(test_telemetry_crc_inverted);
     RUN_TEST(test_compare_buffer_17th_slot);
+
+    // Phase D: F-04 + F-03 tests
+    RUN_TEST(test_edt_extended_frame_discarded);
+    RUN_TEST(test_gcr_missing_start_bit_rejected);
 
     return UNITY_END();
 }
