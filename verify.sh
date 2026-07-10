@@ -299,6 +299,15 @@ for TARGET_DIR in targets/*/; do
     fi
 done
 
+# A6/I-40: Placeholder pinmaps are not flashable (unless explicitly allowed)
+if [ "${MELTYFC_ALLOW_PLACEHOLDER:-0}" != "1" ]; then
+    for TARGET_DIR in targets/*/; do
+        if grep -q "PINMAP_IS_PLACEHOLDER" "${TARGET_DIR}pinmap.h" 2>/dev/null; then
+            fail "$(basename $TARGET_DIR): PLACEHOLDER pinmap — not flashable (set MELTYFC_ALLOW_PLACEHOLDER=1 to override)"
+        fi
+    done
+fi
+
 # V-1/I-21: HAL drivers must not hardcode timer instances outside route consumption
 # Allowed patterns: enableTimerClock dispatcher, MOE predicate (TIM1/TIM8 check),
 # __HAL_RCC_TIM clock enables, ifdef TIM8 guards. Everything else = hardcoded routing.

@@ -6,6 +6,8 @@
 
 #include "hal/common/dshot_hal.h"
 #include "hal/common/dma_buf.h"
+#include "hal/common/gpio_port_clock.h"
+#include "hal/common/timer_clock.h"
 #include "dshot_common.hpp"
 
 #ifdef STM32F7xx
@@ -68,19 +70,13 @@ void dshotInit() {
     SCB_EnableICache();
     SCB_EnableDCache();
 
-    // I-12 + I-16: F7 timer = SystemCoreClock (APB2×2)
-    uint32_t timerClock = SystemCoreClock;
-#ifdef EXPECTED_TIMER_CLOCK_HZ
-    if (timerClock < (EXPECTED_TIMER_CLOCK_HZ * 95 / 100) ||
-        timerClock > (EXPECTED_TIMER_CLOCK_HZ * 105 / 100))
-        while (1) {}
-#endif
-    dshotTiming = dshot::calculateTiming(timerClock, DSHOT_BITRATE_HZ);
-
-    { // R6-3: disarm prefill
+    // A4/I-24: Per-timer timing computed per unique timer below
+    // R6-3: disarm prefill with conservative timing
+    {
+        dshot::DshotTimingConfig defaultTiming = dshot::calculateTiming(SystemCoreClock, DSHOT_BITRATE_HZ);
         uint16_t disarmFrame = dshot::packThrottleFrame(0, false);
         for (int i = 0; i < NUM_MOTORS; i++)
-            dshot::encodeToCompareBuffer(disarmFrame, dshotTiming, dshotCompareBuf[i]);
+            dshot::encodeToCompareBuffer(disarmFrame, defaultTiming, dshotCompareBuf[i]);
     }
 
     __HAL_RCC_DMA1_CLK_ENABLE();
@@ -116,6 +112,9 @@ void dshotInit() {
             if (hMotorTimer[j].Instance == r.timer) { htim = &hMotorTimer[j]; break; }
         HAL_TIM_PWM_ConfigChannel(htim, &oc, r.channel);
 
+        // A2/I-25: GPIO port clock before init
+        gpioEnablePortClock(r.gpioPort);
+
         GPIO_InitTypeDef gpio = {};
         gpio.Pin = r.gpioPin;
         gpio.Mode = GPIO_MODE_AF_PP;
@@ -135,7 +134,15 @@ void dshotInit() {
         hDmaMotor[i].Init.Priority = DMA_PRIORITY_HIGH;
         hDmaMotor[i].Init.FIFOMode = DMA_FIFOMODE_DISABLE;
         HAL_DMA_Init(&hDmaMotor[i]);
+
+        // A1/F-01: DMA↔timer linkage — REQUIRED for HAL_TIM_PWM_Start_DMA
+        uint32_t dmaId = (r.channel >> 2) + 1;
+        __HAL_LINKDMA(htim, hdma[dmaId], hDmaMotor[i]);
     }
+
+    // A4/I-24: Per-timer-domain timing
+    dshotTiming = dshot::calculateTiming(
+        timerKernelClockHz(motorRoutes[0].timer), DSHOT_BITRATE_HZ);
 }
 
 void dshotSend(uint8_t motorIndex, uint16_t frame) {

@@ -247,13 +247,13 @@ void test_lvc_update_critical() {
 }
 
 void test_lvc_spindown_ramp() {
+    // B5/I-34: Hard cut, no ramp. spinDownActive → immediate zero.
     LvcState state = {3, 0, 0, LvcLevel::CRITICAL, true};
-    // At 0ms into critical: full throttle
-    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.75f, lvcSpinDownThrottle(state, 0.75f, 0));
-    // At 1000ms: half throttle
-    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.375f, lvcSpinDownThrottle(state, 0.75f, 1000));
-    // At 2000ms: zero
-    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, lvcSpinDownThrottle(state, 0.75f, 2000));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, lvcSpinDownThrottle(state, 0.75f, 0));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, lvcSpinDownThrottle(state, 0.75f, 1000));
+    // Not active → pass through
+    LvcState stateOk = {3, 0, 0, LvcLevel::OK, false};
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.75f, lvcSpinDownThrottle(stateOk, 0.75f, 0));
 }
 
 void test_lvc_auto_detect_sticks() {

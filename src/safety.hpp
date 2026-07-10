@@ -6,6 +6,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cmath>  // B1/I-37: isfinite for choke NaN guard
 
 namespace melty {
 
@@ -64,12 +65,18 @@ inline bool motorsAllowed(ArmState state) {
 // This is THE ONLY function that should write motor values.
 // verify.sh grep-gates that only motors_dshot.cpp calls this.
 inline float chokeMotorOutput(float mixerOutput, ArmState state) {
+    // B1/I-37: NaN/Inf → 0 (last line of defense)
+    if (!std::isfinite(mixerOutput))
+        return 0.0f;
     return motorsAllowed(state) ? mixerOutput : 0.0f;
 }
 
 // Map normalized throttle (0.0-1.0) to DShot value: {0} ∪ [48, 2047]
 // Values 1-47 are ESC commands — NEVER emitted as throttle.
 inline uint16_t throttleToDshot(float normalized, ArmState state) {
+    // B1/I-37: NaN/Inf → 0 (last line of defense)
+    if (!std::isfinite(normalized))
+        return 0;
     if (!motorsAllowed(state))
         return 0;
     if (normalized <= 0.0f)

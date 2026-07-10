@@ -164,9 +164,10 @@ enum DshotCommand : uint16_t {
 // ============================================================================
 constexpr uint8_t EDT_ENABLE_REPEAT_COUNT = 6;
 
-// Pack an EDT enable command frame (command 13 with telemetry bit set)
-inline uint16_t packEdtEnableFrame() {
-    return packFrameBidir(DSHOT_CMD_BIDIR_EDT_MODE_ON, true);
+// B3/I-28: EDT enable through the token-typed command packer
+// Takes DisarmedOnlyToken because EDT handshake MUST happen while disarmed
+inline uint16_t packEdtEnableFrame(DisarmedOnlyToken token) {
+    return packCommandBidir(token, DSHOT_CMD_BIDIR_EDT_MODE_ON, true);
 }
 
 // State machine for EDT handshake during arming
@@ -181,14 +182,15 @@ struct EdtHandshakeState {
 
     // Call each loop iteration while disarmed and EDT is desired.
     // Returns the frame to send (0 when complete — switch to throttle frames).
-    uint16_t step() {
+    // B3: Takes DisarmedOnlyToken — EDT handshake is a disarmed-only operation
+    uint16_t step(DisarmedOnlyToken token) {
         if (complete)
             return 0;
         sentCount++;
         if (sentCount >= EDT_ENABLE_REPEAT_COUNT) {
             complete = true;
         }
-        return packEdtEnableFrame();
+        return packEdtEnableFrame(token);
     }
 };
 

@@ -170,16 +170,24 @@ uint16_t extractErpmPeriod(uint16_t decodedFrame) {
 }
 
 bool isEdtExtendedFrame(uint16_t decodedFrame) {
-    // EDT extended telemetry (temperature/voltage/current) shares the bidir
-    // channel. Type nibble in bits [11:8] of the 12-bit payload. When type != 0,
-    // the frame is extended telemetry, not an eRPM period. Detect and discard.
-    uint16_t raw12 = decodedFrame >> 4;
-    // In EDT, frame type 0 = eRPM. Nonzero = extended data.
-    // The exponent field doubles as the frame type indicator for EDT.
-    // EDT type is in the top 4 bits of raw12 (bits 11:8 of the 12-bit payload)
-    // Type 0 = eRPM period. Type 1-15 = extended data (temp, voltage, current, etc.)
-    uint8_t edtType = (raw12 >> 8) & 0x0F;
-    return edtType != 0;
+    // B4/I-17: EDT frame identification per AM32/Bluejay spec.
+    // In EDT mode, the 12-bit payload has two formats:
+    //   eRPM: 3-bit exponent + 9-bit mantissa (exponent 0-7 are ALL valid eRPM)
+    //   EDT status: indicated by specific CRC nibble patterns, NOT by exponent value
+    //
+    // The EDT status frames use the INVERTED CRC convention differently from eRPM.
+    // For basic bidir without EDT negotiated: ALL frames are eRPM (return false).
+    // For EDT-negotiated links: frames with the EDT signature pattern are status.
+    //
+    // Detection: EDT status frames have their type nibble (bottom 4 bits of decoded
+    // 16-bit frame, BEFORE the >> 4 shift) set to a nonzero value.
+    // The decodedFrame passed here is the FULL 16-bit decoded value.
+    // Bottom 4 bits = CRC/type. Bits [15:4] = payload.
+    // EDT type nibble is bits [3:0] when nonzero = extended frame.
+    uint8_t typeNibble = decodedFrame & 0x0F;
+    // Type 0 = normal eRPM (or CRC nibble on non-EDT links)
+    // Type 1-15 = EDT extended data (temp=1, voltage=2, current=3, debug=4, state=5)
+    return typeNibble != 0 && typeNibble <= 5;  // Only known EDT types
 }
 
 bool validateTelemetryCrc(uint16_t decodedFrame) {

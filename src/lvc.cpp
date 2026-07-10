@@ -6,23 +6,41 @@
 namespace melty {
 
 uint8_t lvcAutoDetectCells(float packVoltage) {
-    // Detect based on voltage ranges at typical charge levels
-    // Fully charged: ~4.2V/cell. Storage: ~3.8V. Cutoff: ~3.0V.
-    // Allow up to 4.35V/cell for HV packs.
+    // B2/I-31: Detect with AMBIGUITY WINDOWS.
+    // Overlap zones where a full N-cell pack equals a discharged (N+1)-cell pack
+    // return 0 = AMBIGUOUS → arming refused until explicit cellCount is set.
+    //
+    // Safe ranges (no overlap):
+    //   1S: 2.5–4.35V (no overlap — nothing below 1S)
+    //   2S: 5.0–8.7V  (overlap at 4.35–5.0: full 1S vs discharged 2S)
+    //   3S: 9.5–13.05V (overlap at 8.7–9.5: full 2S vs discharged 3S)
+    //   4S: 13.5–17.4V (overlap at 12.0–13.5: full 3S vs discharged 4S)
+    //   5S: 18.0–21.75V
+    //   6S: 22.0–26.1V
     if (packVoltage < 2.5f)
-        return 0; // Too low to detect
+        return 0; // Too low
     if (packVoltage <= 4.35f)
-        return 1; // 1S: 2.5–4.35V
+        return 1; // 1S: unambiguous
+    if (packVoltage < 5.0f)
+        return 0; // AMBIGUOUS: full 1S vs discharged 2S
     if (packVoltage <= 8.7f)
-        return 2; // 2S: 4.36–8.7V
+        return 2; // 2S: unambiguous
+    if (packVoltage < 9.5f)
+        return 0; // AMBIGUOUS: full 2S vs discharged 3S
     if (packVoltage <= 13.05f)
-        return 3; // 3S: 8.71–13.05V
+        return 3; // 3S: unambiguous
+    if (packVoltage < 13.5f)
+        return 0; // AMBIGUOUS: full 3S vs discharged 4S
     if (packVoltage <= 17.4f)
-        return 4; // 4S: 13.06–17.4V
+        return 4; // 4S: unambiguous
+    if (packVoltage < 18.0f)
+        return 0; // AMBIGUOUS: full 4S vs discharged 5S
     if (packVoltage <= 21.75f)
-        return 5; // 5S: 17.41–21.75V
+        return 5; // 5S: unambiguous
+    if (packVoltage < 22.0f)
+        return 0; // AMBIGUOUS: full 5S vs discharged 6S
     if (packVoltage <= 26.1f)
-        return 6; // 6S: 21.76–26.1V
+        return 6; // 6S: unambiguous
     return 0;     // Out of range
 }
 
@@ -84,16 +102,14 @@ LvcLevel lvcUpdate(LvcState& state, float packVoltage, const LvcConfig& cfg) {
     return state.level;
 }
 
-float lvcSpinDownThrottle(const LvcState& state, float currentThrottle, uint32_t critDurationMs) {
-    if (!state.spinDownActive)
-        return currentThrottle;
-
-    // Ramp down over 2000ms
-    if (critDurationMs >= 2000)
+float lvcSpinDownThrottle(const LvcState& state, float currentThrottle, uint32_t /*critDurationMs*/) {
+    // B5/I-34: DECISION — hard cut, no ramp. Fail-closed beats graceful for a weapon.
+    // LVC CRITICAL → choke to zero immediately. No spin-down ramp.
+    // The ramp was deleted because a gradual power reduction on a spinning weapon
+    // is MORE dangerous than a clean stop (asymmetric torque, loss of control).
+    if (state.spinDownActive)
         return 0.0f;
-
-    float ramp = 1.0f - (static_cast<float>(critDurationMs) / 2000.0f);
-    return currentThrottle * ramp;
+    return currentThrottle;
 }
 
 } // namespace melty

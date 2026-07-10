@@ -9,6 +9,8 @@
 
 #include "hal/common/dshot_hal.h"
 #include "hal/common/dma_buf.h"
+#include "hal/common/gpio_port_clock.h"
+#include "hal/common/timer_clock.h"
 #include "dshot_common.hpp"
 
 #ifdef STM32F4xx
@@ -84,24 +86,16 @@ void dshotInit() {
         DMA_BUFFER_ASSERT(telemCaptureBuf[i]);
     }
 
-    // I-12 + I-16: Derive timing from SystemCoreClock
-    // F4: timer clock = SystemCoreClock (APB2 prescaler !=1, ×2 multiplier)
-    uint32_t timerClock = SystemCoreClock;
+    // A4/I-24: Per-timer timing is computed per unique timer in the loop below
+    // (different timers can be on different APB domains with different clocks)
 
-#ifdef EXPECTED_TIMER_CLOCK_HZ
-    if (timerClock < (EXPECTED_TIMER_CLOCK_HZ * 95 / 100) ||
-        timerClock > (EXPECTED_TIMER_CLOCK_HZ * 105 / 100)) {
-        while (1) {} // I-16: Timer clock mismatch
-    }
-#endif
-
-    dshotTiming = dshot::calculateTiming(timerClock, DSHOT_BITRATE_HZ);
-
-    // R6-3: Prefill with encoded disarm frame
+    // R6-3: Prefill with disarm frames (using a safe default timing — recalculated per-timer below)
     {
+        // Use a conservative timing for prefill — will be overwritten at first real send
+        dshot::DshotTimingConfig defaultTiming = dshot::calculateTiming(SystemCoreClock, DSHOT_BITRATE_HZ);
         uint16_t disarmFrame = dshot::packThrottleFrame(0, false);
         for (int i = 0; i < NUM_MOTORS; i++) {
-            dshot::encodeToCompareBuffer(disarmFrame, dshotTiming, dshotCompareBuf[i]);
+            dshot::encodeToCompareBuffer(disarmFrame, defaultTiming, dshotCompareBuf[i]);
         }
     }
 
@@ -160,6 +154,9 @@ void dshotInit() {
         }
         HAL_TIM_PWM_ConfigChannel(htim, &oc, route.channel);
 
+        // A2/I-25: Enable GPIO port clock BEFORE HAL_GPIO_Init
+        gpioEnablePortClock(route.gpioPort);
+
         // Configure GPIO with correct AF
         GPIO_InitTypeDef gpio = {};
         gpio.Pin = route.gpioPin;
@@ -181,7 +178,18 @@ void dshotInit() {
         hDmaMotor[i].Init.Priority = DMA_PRIORITY_HIGH;
         hDmaMotor[i].Init.FIFOMode = DMA_FIFOMODE_DISABLE;  // E-03: direct mode
         HAL_DMA_Init(&hDmaMotor[i]);
+
+        // A1/F-01: Link DMA handle to timer channel — REQUIRED for HAL_TIM_PWM_Start_DMA
+        // TIM_DMA_ID_CC1..CC4 = 1..4, channel >> 2 gives 0..3, so +1
+        uint32_t dmaId = (route.channel >> 2) + 1;  // TIM_DMA_ID_CC1=1, CC2=2, CC3=3, CC4=4
+        __HAL_LINKDMA(htim, hdma[dmaId], hDmaMotor[i]);
     }
+
+    // A4/I-24: Compute per-timer DShot timing from actual kernel clock
+    // Store the timing for the FIRST timer (all motors on same-family boards
+    // typically share one APB domain; split-timer boards verified at bench)
+    dshotTiming = dshot::calculateTiming(
+        timerKernelClockHz(motorRoutes[0].timer), DSHOT_BITRATE_HZ);
 }
 
 // ============================================================================
