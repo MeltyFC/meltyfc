@@ -385,6 +385,20 @@ void test_resync_wrap_around_backward() {
 // ============================================================================
 // Main
 // ============================================================================
+// Phase G/B2: Cell ambiguity suite
+void test_cell_detect_12_4v_ambiguous() {
+    // 12.4V is in the 3S/4S overlap window — must return 0 (ambiguous)
+    TEST_ASSERT_EQUAL_UINT8(0, lvcAutoDetectCells(13.2f)); // In 3S/4S overlap (13.05-13.5)
+}
+void test_cell_detect_9_0v_ambiguous() {
+    // 9.0V is in the 2S/3S overlap window
+    TEST_ASSERT_EQUAL_UINT8(0, lvcAutoDetectCells(9.0f));
+}
+void test_cell_detect_11_1v_unambiguous_3s() {
+    // 11.1V is clearly 3S (above 2S overlap, below 3S/4S overlap)
+    TEST_ASSERT_EQUAL_UINT8(3, lvcAutoDetectCells(11.1f));
+}
+
 int main() {
     UNITY_BEGIN();
 
@@ -436,5 +450,10 @@ int main() {
     RUN_TEST(test_blackbox_format);
     RUN_TEST(test_blackbox_format_header);
 
+    // Phase G: Cell ambiguity
+    RUN_TEST(test_cell_detect_12_4v_ambiguous);
+    RUN_TEST(test_cell_detect_9_0v_ambiguous);
+    RUN_TEST(test_cell_detect_11_1v_unambiguous_3s);
     return UNITY_END();
 }
+

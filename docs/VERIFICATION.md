@@ -184,3 +184,26 @@ The designed clock-loss response is:
 This chain is verified by architecture (I-3 non-circular DMA is the key link).
 CSS + NMI handler for limp-home on HSI is NOT implemented — the hard-stop chain
 is the designed behavior. Documented, not undecided.
+
+## Invariants I-22 through I-40 (SOL audit — Campaign #2)
+
+| ID | Rule | Enforcement |
+|----|------|-------------|
+| I-23 | DMA completion tracked per-stream, not global bool | Per-stream bitmask + callbacks |
+| I-24 | Timer clock derived per APB domain (timerKernelClockHz) | timer_clock.h helper |
+| I-25 | GPIO port clock enabled before ANY HAL_GPIO_Init | gpioEnablePortClock() helper |
+| I-26 | VBAT route-driven: ADC instance/channel/GPIO from pinmap | Deferred to D-phase |
+| I-27 | Route tuples enforced by #error in motor_route.h | Compile-time gate |
+| I-28 | EDT handshake through DisarmedOnlyToken path | packEdtEnableFrame(token) |
+| I-29 | Fault handlers use naked asm for MSP/PSP detection | tst lr, #4 pattern |
+| I-30 | DMA completion callbacks clear per-stream bits | ISR_CONTRACT.md |
+| I-31 | Cell detection returns AMBIGUOUS for overlap voltages | lvcAutoDetectCells() windows |
+| I-32 | DWT micros() uses 64-bit wrap extension | totalCycles accumulation |
+| I-33 | Loop timer measures execution vs period separately | Deferred to integration |
+| I-34 | LVC hard cut — no ramp (decision record) | B5 deletion documented |
+| I-35 | CRSF flight-mode frame is standard-class (no dest/origin) | C4 builder fix |
+| I-36 | Blackbox sector-tail arithmetic correct | Deferred to integration |
+| I-37 | Choke functions reject NaN/Inf → 0 | isfinite() in both functions |
+| I-38 | verify.sh gates self-tested by failure injection | Deferred to report |
+| I-39 | Errata audit pins ES id+rev+date per document | ERRATA_AUDIT.md header |
+| I-40 | Placeholder pinmaps blocked from flash | verify.sh PLACEHOLDER gate |

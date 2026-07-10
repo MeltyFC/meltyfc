@@ -348,6 +348,29 @@ void test_throttle_mapping_never_1_to_47() {
 // ============================================================================
 // Runner
 // ============================================================================
+
+// Phase G/B1: Choke NaN/Inf suite
+void test_choke_nan_armed() {
+    float result = chokeMotorOutput(NAN, ArmState::ARMED);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, result);
+}
+void test_choke_inf_armed() {
+    float result = chokeMotorOutput(INFINITY, ArmState::ARMED);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, result);
+}
+void test_choke_neg_inf_armed() {
+    float result = chokeMotorOutput(-INFINITY, ArmState::ARMED);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, result);
+}
+void test_throttle_nan_armed() {
+    uint16_t result = throttleToDshot(NAN, ArmState::ARMED);
+    TEST_ASSERT_EQUAL_UINT16(0, result);
+}
+void test_throttle_inf_armed() {
+    uint16_t result = throttleToDshot(INFINITY, ArmState::ARMED);
+    TEST_ASSERT_EQUAL_UINT16(0, result);
+}
+
 int main() {
     UNITY_BEGIN();
 
@@ -390,5 +413,11 @@ int main() {
     RUN_TEST(test_throttle_to_dshot_mapping);
     RUN_TEST(test_throttle_mapping_never_1_to_47);
 
+    // Phase G: Choke NaN/Inf
+    RUN_TEST(test_choke_nan_armed);
+    RUN_TEST(test_choke_inf_armed);
+    RUN_TEST(test_choke_neg_inf_armed);
+    RUN_TEST(test_throttle_nan_armed);
+    RUN_TEST(test_throttle_inf_armed);
     return UNITY_END();
 }
