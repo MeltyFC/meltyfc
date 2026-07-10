@@ -58,9 +58,11 @@
 #define CRSF_RX_PIN PA3 // PLACEHOLDER
 #define CRSF_BAUD 420000
 
-// Battery voltage sense (ADC)
+// D1: Battery voltage sense — ADC route tuple (PLACEHOLDER — needs Step 0 dump)
 #define VBAT_PIN                 // PLACEHOLDER — may not be routed
 #define VBAT_DIVIDER_RATIO 11.0f // PLACEHOLDER — measure actual divider
+// VBAT_ADC_INSTANCE, VBAT_ADC_CHANNEL, VBAT_GPIO_PORT, VBAT_GPIO_PIN,
+// VBAT_SAMPLE_TIME — all deferred until Step 0 dump confirms VBAT routing
 
 // Current sense (ADC) — may not be available
 #define CURRENT_PIN // PLACEHOLDER

@@ -51,9 +51,14 @@
 #define CRSF_RX_PIN PA3    // BF_CONFIG_DERIVED
 #define CRSF_BAUD 420000
 
-// Battery voltage sense (ADC)
+// D1: Battery voltage sense — ADC route tuple
 #define VBAT_PIN PB0                 // BF_CONFIG_DERIVED
 #define VBAT_DIVIDER_RATIO 11.0f     // BF_CONFIG_DERIVED
+#define VBAT_ADC_INSTANCE ADC1
+#define VBAT_ADC_CHANNEL ADC_CHANNEL_8   // PB0 = ADC1_IN8
+#define VBAT_GPIO_PORT GPIOB
+#define VBAT_GPIO_PIN GPIO_PIN_0
+#define VBAT_SAMPLE_TIME ADC_SAMPLETIME_56CYCLES
 
 // Current sense (ADC)
 #define CURRENT_PIN PB1              // BF_CONFIG_DERIVED

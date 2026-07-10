@@ -25,7 +25,7 @@ void SystemClock_Config(void);
 // Feature availability on this target
 #define HAS_BIDIR_DSHOT 1
 #define HAS_SPI_FLASH 1
-#define HAS_VBAT_SENSE 1       // Verify from dump
+#define HAS_VBAT_SENSE 0       // PLACEHOLDER — set to 1 after Step 0 dump confirms pin + route tuple
 #define HAS_CURRENT_SENSE 0    // Verify from dump
 #define HAS_DEDICATED_BEEPER 0 // Uses DShot beacon instead
 

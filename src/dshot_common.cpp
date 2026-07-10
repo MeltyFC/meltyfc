@@ -169,25 +169,19 @@ uint16_t extractErpmPeriod(uint16_t decodedFrame) {
     return mantissa << exponent;
 }
 
-bool isEdtExtendedFrame(uint16_t decodedFrame) {
-    // B4/I-17: EDT frame identification per AM32/Bluejay spec.
-    // In EDT mode, the 12-bit payload has two formats:
-    //   eRPM: 3-bit exponent + 9-bit mantissa (exponent 0-7 are ALL valid eRPM)
-    //   EDT status: indicated by specific CRC nibble patterns, NOT by exponent value
-    //
-    // The EDT status frames use the INVERTED CRC convention differently from eRPM.
-    // For basic bidir without EDT negotiated: ALL frames are eRPM (return false).
-    // For EDT-negotiated links: frames with the EDT signature pattern are status.
-    //
-    // Detection: EDT status frames have their type nibble (bottom 4 bits of decoded
-    // 16-bit frame, BEFORE the >> 4 shift) set to a nonzero value.
-    // The decodedFrame passed here is the FULL 16-bit decoded value.
-    // Bottom 4 bits = CRC/type. Bits [15:4] = payload.
-    // EDT type nibble is bits [3:0] when nonzero = extended frame.
+bool isEdtExtendedFrame(uint16_t decodedFrame, bool edtNegotiated) {
+    // R13-3: EDT frame identification per AM32/Bluejay spec.
+    // CRITICAL: Must be gated on edtNegotiated. Without EDT negotiation,
+    // the bottom 4 bits are CRC — values 1-5 appear in ~31% of valid eRPM frames.
+    // Without this gate, those frames get misclassified as EDT and discarded.
+    if (!edtNegotiated)
+        return false;
+
+    // In EDT mode, the ESC replaces the CRC nibble with a type indicator on
+    // extended status frames. Type 0 = normal eRPM (valid CRC), types 1-5 = EDT:
+    //   1=temperature, 2=voltage, 3=current, 4=debug, 5=state/events
     uint8_t typeNibble = decodedFrame & 0x0F;
-    // Type 0 = normal eRPM (or CRC nibble on non-EDT links)
-    // Type 1-15 = EDT extended data (temp=1, voltage=2, current=3, debug=4, state=5)
-    return typeNibble != 0 && typeNibble <= 5;  // Only known EDT types
+    return typeNibble >= 1 && typeNibble <= 5;
 }
 
 bool validateTelemetryCrc(uint16_t decodedFrame) {

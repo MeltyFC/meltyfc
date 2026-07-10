@@ -42,6 +42,53 @@ echo "=========================================="
 echo "MeltyFC verify.sh — $(date)"
 echo "=========================================="
 
+# ----------------------------------------------------------------
+# 0. I-38: Failure-injection self-test
+# Proves that set -e + fail() actually terminates the script.
+# If this gate passes, every subsequent fail() call is known-reachable.
+# ----------------------------------------------------------------
+echo ""
+echo "--- Step 0: I-38 failure-injection self-test ---"
+
+# Test 1: fail() must produce non-zero exit in a subshell
+SELF_TEST_OUTPUT=$(bash -c '
+    set -euo pipefail
+    fail() { echo "INJECTED_FAIL"; exit 1; }
+    fail "test"
+    echo "UNREACHABLE"
+' 2>&1) && {
+    fail "I-38: fail() did not produce non-zero exit — error handling broken"
+}
+if echo "$SELF_TEST_OUTPUT" | grep -q "UNREACHABLE"; then
+    fail "I-38: code after fail() was reached — set -e is not working"
+fi
+if ! echo "$SELF_TEST_OUTPUT" | grep -q "INJECTED_FAIL"; then
+    fail "I-38: fail() did not produce expected output"
+fi
+
+# Test 2: set -e catches command failure
+SELF_TEST2=$(bash -c '
+    set -euo pipefail
+    false
+    echo "UNREACHABLE_2"
+' 2>&1) && {
+    fail "I-38: set -e did not catch bare 'false' command"
+}
+if echo "$SELF_TEST2" | grep -q "UNREACHABLE_2"; then
+    fail "I-38: code after failed command was reached"
+fi
+
+# Test 3: pipefail catches mid-pipe failure
+SELF_TEST3=$(bash -c '
+    set -euo pipefail
+    false | cat
+    echo "UNREACHABLE_3"
+' 2>&1) && {
+    fail "I-38: pipefail did not catch mid-pipe failure"
+}
+
+pass "I-38: failure-injection self-test (fail(), set -e, pipefail all verified)"
+
 # Ensure we're in the repo root
 if [ ! -f platformio.ini ]; then
     fail "Not in repo root (no platformio.ini found)"

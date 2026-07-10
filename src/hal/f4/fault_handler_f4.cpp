@@ -52,23 +52,38 @@ void faultHandlerKillAndBreadcrumb(uint32_t* stackFrame) {
 
 } // namespace melty
 
-// Override the weak HardFault_Handler from the startup file
-extern "C" void HardFault_Handler(void) {
-    // Determine which stack pointer was in use (MSP or PSP)
-    uint32_t* sp;
+// R13-2: Naked fault entry — NO compiler prologue/epilogue.
+// The two-stage pattern: naked asm selects MSP/PSP, passes frame to C handler.
+// Without naked, the compiler may adjust SP before the capture, corrupting the frame.
+extern "C" __attribute__((naked)) void HardFault_Handler(void) {
     __asm volatile(
-        "tst lr, #4      \n"
+        "tst lr, #4      \n"  // Test bit 2 of EXC_RETURN
         "ite eq           \n"
-        "mrseq %0, msp   \n"
-        "mrsne %0, psp   \n"
-        : "=r"(sp)
+        "mrseq r0, msp   \n"  // Main stack
+        "mrsne r0, psp   \n"  // Process stack
+        "b %0            \n"  // Branch to C handler (r0 = frame pointer)
+        :: "i"(melty::faultHandlerKillAndBreadcrumb)
     );
-    melty::faultHandlerKillAndBreadcrumb(sp);
 }
 
-extern "C" void BusFault_Handler(void)   { HardFault_Handler(); }
-extern "C" void UsageFault_Handler(void) { HardFault_Handler(); }
-extern "C" void MemManage_Handler(void)  { HardFault_Handler(); }
+extern "C" __attribute__((naked)) void BusFault_Handler(void) {
+    __asm volatile(
+        "tst lr, #4\nite eq\nmrseq r0, msp\nmrsne r0, psp\n"
+        "b %0\n" :: "i"(melty::faultHandlerKillAndBreadcrumb)
+    );
+}
+extern "C" __attribute__((naked)) void UsageFault_Handler(void) {
+    __asm volatile(
+        "tst lr, #4\nite eq\nmrseq r0, msp\nmrsne r0, psp\n"
+        "b %0\n" :: "i"(melty::faultHandlerKillAndBreadcrumb)
+    );
+}
+extern "C" __attribute__((naked)) void MemManage_Handler(void) {
+    __asm volatile(
+        "tst lr, #4\nite eq\nmrseq r0, msp\nmrsne r0, psp\n"
+        "b %0\n" :: "i"(melty::faultHandlerKillAndBreadcrumb)
+    );
+}
 
 #endif // STM32F4xx
 #endif // NATIVE_BUILD

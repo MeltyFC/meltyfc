@@ -343,10 +343,22 @@ void test_compare_buffer_17th_slot() {
 
 // Phase D: F-04 EDT + F-03 start-bit tests
 void test_edt_extended_frame_discarded() {
-    uint16_t edtFrame = 0x1234;
-    TEST_ASSERT_TRUE(isEdtExtendedFrame(edtFrame));
-    uint16_t erpmFrame = 0x0ABC;
-    TEST_ASSERT_FALSE(isEdtExtendedFrame(erpmFrame));
+    // R13-3: EDT classification MUST be gated on edtNegotiated flag.
+    // Without EDT negotiation, ALL frames are eRPM — even if CRC nibble is 1-5.
+    uint16_t edtFrame = 0x1234;  // bottom nibble 4 = EDT type "debug"
+    TEST_ASSERT_TRUE(isEdtExtendedFrame(edtFrame, true));   // EDT negotiated → extended
+    TEST_ASSERT_FALSE(isEdtExtendedFrame(edtFrame, false));  // NOT negotiated → eRPM
+
+    uint16_t erpmFrame = 0x0ABC;  // bottom nibble C (12) → not an EDT type
+    TEST_ASSERT_FALSE(isEdtExtendedFrame(erpmFrame, true));  // Even with EDT, not a valid type
+    TEST_ASSERT_FALSE(isEdtExtendedFrame(erpmFrame, false)); // Without EDT, definitely not
+
+    // R13-3: Verify the 31% bug is fixed — CRC nibble values 1-5 are NOT EDT without negotiation
+    for (uint8_t crc = 1; crc <= 5; crc++) {
+        uint16_t frame = 0x0AB0 | crc;  // Valid-looking eRPM with CRC 1-5
+        TEST_ASSERT_FALSE(isEdtExtendedFrame(frame, false));  // Must NOT eat these
+        TEST_ASSERT_TRUE(isEdtExtendedFrame(frame, true));    // EDT negotiated → these ARE EDT
+    }
 }
 
 void test_gcr_missing_start_bit_rejected() {

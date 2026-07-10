@@ -128,7 +128,8 @@ void dshotInit() {
             hMotorTimer[i].Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
             hMotorTimer[i].Init.RepetitionCounter = 0;
             hMotorTimer[i].Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
-            HAL_TIM_PWM_Init(&hMotorTimer[i]);
+            // F-27: HAL return check — partial motor init = do not fly
+            if (HAL_TIM_PWM_Init(&hMotorTimer[i]) != HAL_OK) while(1) {}
 
             // MOE only for TIM1/TIM8 (ES0182 §2.6.1: break not connected, safe)
             if (route.timer == TIM1
@@ -159,7 +160,8 @@ void dshotInit() {
                 break;
             }
         }
-        HAL_TIM_PWM_ConfigChannel(htim, &oc, route.channel);
+        // F-27: HAL return check
+        if (HAL_TIM_PWM_ConfigChannel(htim, &oc, route.channel) != HAL_OK) while(1) {}
 
         // A2/I-25: Enable GPIO port clock BEFORE HAL_GPIO_Init
         gpioEnablePortClock(route.gpioPort);
@@ -184,7 +186,8 @@ void dshotInit() {
         hDmaMotor[i].Init.Mode = DMA_NORMAL;  // I-3: never circular
         hDmaMotor[i].Init.Priority = DMA_PRIORITY_HIGH;
         hDmaMotor[i].Init.FIFOMode = DMA_FIFOMODE_DISABLE;  // E-03: direct mode
-        HAL_DMA_Init(&hDmaMotor[i]);
+        // F-27: HAL return check
+        if (HAL_DMA_Init(&hDmaMotor[i]) != HAL_OK) while(1) {}
 
         // A1/F-01: Link DMA handle to timer channel — REQUIRED for HAL_TIM_PWM_Start_DMA
         // TIM_DMA_ID_CC1..CC4 = 1..4, channel >> 2 gives 0..3, so +1
@@ -239,22 +242,38 @@ void dshotCommit() {
     }
 }
 
-// A3/I-23/I-30: DMA transfer-complete callback — clears per-stream bit
-// Called from ISR context by HAL when a timer DMA transfer finishes.
-// Per ISR_CONTRACT.md: only clears a volatile flag, no blocking/allocating.
-void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef* htim) {
-    // Find which motor(s) use this timer+channel and clear their bits
+// R13-1: Pure function — find which route entry matches (timer, active channel)
+// Extracted for testability. Returns bit mask or 0 if no match.
+static uint8_t routeBitForCompletion(TIM_TypeDef* instance, HAL_TIM_ActiveChannel activeChannel) {
+    // Convert HAL active channel enum to TIM_CHANNEL constant for comparison
+    uint32_t completedChannel;
+    switch (activeChannel) {
+        case HAL_TIM_ACTIVE_CHANNEL_1: completedChannel = TIM_CHANNEL_1; break;
+        case HAL_TIM_ACTIVE_CHANNEL_2: completedChannel = TIM_CHANNEL_2; break;
+        case HAL_TIM_ACTIVE_CHANNEL_3: completedChannel = TIM_CHANNEL_3; break;
+        case HAL_TIM_ACTIVE_CHANNEL_4: completedChannel = TIM_CHANNEL_4; break;
+        default: return 0;
+    }
     for (int i = 0; i < NUM_MOTORS; i++) {
-        if (hMotorTimer[i].Instance == htim->Instance ||
-            (i > 0 && hMotorTimer[0].Instance == htim->Instance)) {
-            dmaActiveMask &= ~(1 << i);
+        if (motorRoutes[i].timer == instance && motorRoutes[i].channel == completedChannel) {
+            return (1 << i);
         }
+    }
+    return 0;
+}
+
+// A3/R13-1: DMA transfer-complete callback — clears ONLY the completed stream's bit.
+// On shared-timer boards (e.g., TIM1×4), dispatches on htim->Channel to avoid
+// clearing bits for channels still in flight.
+void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef* htim) {
+    uint8_t bit = routeBitForCompletion(htim->Instance, htim->Channel);
+    if (bit) {
+        dmaActiveMask &= ~bit;
     }
 }
 
-// A3: DMA error callback — also clears the bit (fail-open on DMA error)
+// A3: DMA error callback — clears all bits (fail-open, retry next commit)
 void HAL_DMA_ErrorCallback(DMA_HandleTypeDef* hdma) {
-    // Clear all bits on DMA error — motors will retry next commit
     dmaActiveMask = 0;
     (void)hdma;
 }

@@ -85,10 +85,15 @@
 #define CRSF_RX_PIN PC7    // BF_CONFIG_DERIVED — verify on live dump at arrival
 #define CRSF_BAUD 420000
 
-// Battery voltage sense (ADC)
+// D1: Battery voltage sense — ADC route tuple
 // BF: DEFAULT_VOLTAGE_METER_SCALE 211 → divider ratio ~21.1
 #define VBAT_PIN PC0                 // BF_CONFIG_DERIVED — verify on live dump at arrival
 #define VBAT_DIVIDER_RATIO 21.1f     // BF_CONFIG_DERIVED — verify on live dump at arrival
+#define VBAT_ADC_INSTANCE ADC3       // H743: PC0 on ADC3 (ADC1/2 also possible but BF uses ADC3)
+#define VBAT_ADC_CHANNEL ADC_CHANNEL_10  // PC0 = ADC3_INP10
+#define VBAT_GPIO_PORT GPIOC
+#define VBAT_GPIO_PIN GPIO_PIN_0
+#define VBAT_SAMPLE_TIME ADC_SAMPLETIME_64CYCLES_5
 
 // Current sense (ADC) — BF: DEFAULT_CURRENT_METER_SCALE 707
 #define CURRENT_PIN PC1              // BF_CONFIG_DERIVED — verify on live dump at arrival

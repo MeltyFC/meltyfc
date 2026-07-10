@@ -104,7 +104,8 @@ void dshotInit() {
             hMotorTimer[i].Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
             hMotorTimer[i].Init.RepetitionCounter = 0;
             hMotorTimer[i].Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
-            HAL_TIM_PWM_Init(&hMotorTimer[i]);
+            // F-27: HAL return check — partial motor init = do not fly
+            if (HAL_TIM_PWM_Init(&hMotorTimer[i]) != HAL_OK) while(1) {}
             if (r.timer == TIM1 || r.timer == TIM8)
                 __HAL_TIM_MOE_ENABLE(&hMotorTimer[i]);
             initializedTimers[numInitializedTimers++] = r.timer;
@@ -119,7 +120,8 @@ void dshotInit() {
         TIM_HandleTypeDef* htim = &hMotorTimer[i];
         for (int j = 0; j < i; j++)
             if (hMotorTimer[j].Instance == r.timer) { htim = &hMotorTimer[j]; break; }
-        HAL_TIM_PWM_ConfigChannel(htim, &oc, r.channel);
+        // F-27: HAL return check
+        if (HAL_TIM_PWM_ConfigChannel(htim, &oc, r.channel) != HAL_OK) while(1) {}
 
         // A2/I-25: GPIO port clock before init
         gpioEnablePortClock(r.gpioPort);
@@ -145,7 +147,8 @@ void dshotInit() {
         hDmaMotor[i].Init.Mode = DMA_NORMAL;
         hDmaMotor[i].Init.Priority = DMA_PRIORITY_HIGH;
         hDmaMotor[i].Init.FIFOMode = DMA_FIFOMODE_DISABLE;
-        HAL_DMA_Init(&hDmaMotor[i]);
+        // F-27: HAL return check
+        if (HAL_DMA_Init(&hDmaMotor[i]) != HAL_OK) while(1) {}
 
         // A1/F-01: DMA linkage — HAL DMA IDs are CC1..CC4 = 1..4
         uint32_t dmaId = (r.channel >> 2) + 1;
@@ -155,6 +158,33 @@ void dshotInit() {
     // A4/I-24: Per-timer-domain timing
     dshotTiming = dshot::calculateTiming(
         timerKernelClockHz(motorRoutes[0].timer), DSHOT_BITRATE_HZ);
+}
+
+// R13-1: Completion callback — same structure as F4/F7
+static uint8_t routeBitForCompletion(TIM_TypeDef* instance, HAL_TIM_ActiveChannel activeChannel) {
+    uint32_t completedChannel;
+    switch (activeChannel) {
+        case HAL_TIM_ACTIVE_CHANNEL_1: completedChannel = TIM_CHANNEL_1; break;
+        case HAL_TIM_ACTIVE_CHANNEL_2: completedChannel = TIM_CHANNEL_2; break;
+        case HAL_TIM_ACTIVE_CHANNEL_3: completedChannel = TIM_CHANNEL_3; break;
+        case HAL_TIM_ACTIVE_CHANNEL_4: completedChannel = TIM_CHANNEL_4; break;
+        default: return 0;
+    }
+    for (int i = 0; i < NUM_MOTORS; i++) {
+        if (motorRoutes[i].timer == instance && motorRoutes[i].channel == completedChannel)
+            return (1 << i);
+    }
+    return 0;
+}
+
+void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef* htim) {
+    uint8_t bit = routeBitForCompletion(htim->Instance, htim->Channel);
+    if (bit) dmaActiveMask &= ~bit;
+}
+
+void HAL_DMA_ErrorCallback(DMA_HandleTypeDef* hdma) {
+    dmaActiveMask = 0;
+    (void)hdma;
 }
 
 void dshotSend(uint8_t motorIndex, uint16_t frame) {

@@ -1,12 +1,21 @@
 // MeltyFC — VBAT HAL: STM32F7 Family
 // 12-bit ADC (0-4095), same as F4. Different clock prescaler.
 // [2026-07-09] R7-1
+// [2026-07-10] D1: Consumes VBAT route tuples from pinmap.h.
 
 #ifndef NATIVE_BUILD
 #include "hal/common/vbat_hal.h"
+#include "hal/common/gpio_port_clock.h"
 #ifdef STM32F7xx
 #include "stm32f7xx_hal.h"
 #include "target.h"
+
+// D1: Compile-time gate
+#if defined(HAS_VBAT_SENSE) && HAS_VBAT_SENSE
+#if !defined(VBAT_ADC_INSTANCE) || !defined(VBAT_ADC_CHANNEL) || !defined(VBAT_GPIO_PORT) || !defined(VBAT_GPIO_PIN)
+#error "D1: VBAT route tuple incomplete — pinmap.h must define VBAT_ADC_INSTANCE, VBAT_ADC_CHANNEL, VBAT_GPIO_PORT, VBAT_GPIO_PIN"
+#endif
+#endif
 
 namespace melty {
 namespace hal {
@@ -18,8 +27,19 @@ static constexpr uint16_t ADC_REF_MV = 3300;
 
 void vbatInit() {
     adcInitialized = false;
-    __HAL_RCC_ADC1_CLK_ENABLE();
-    hAdc.Instance = ADC1;
+
+#if defined(HAS_VBAT_SENSE) && HAS_VBAT_SENSE
+    // D1: GPIO analog input
+    gpioEnablePortClock(VBAT_GPIO_PORT);
+    GPIO_InitTypeDef gpio = {};
+    gpio.Pin = VBAT_GPIO_PIN;
+    gpio.Mode = GPIO_MODE_ANALOG;
+    gpio.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(VBAT_GPIO_PORT, &gpio);
+
+    if (VBAT_ADC_INSTANCE == ADC1) __HAL_RCC_ADC1_CLK_ENABLE();
+
+    hAdc.Instance = VBAT_ADC_INSTANCE;
     hAdc.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
     hAdc.Init.Resolution = ADC_RESOLUTION_12B;
     hAdc.Init.ScanConvMode = DISABLE;
@@ -27,6 +47,18 @@ void vbatInit() {
     hAdc.Init.DataAlign = ADC_DATAALIGN_RIGHT;
     hAdc.Init.NbrOfConversion = 1;
     if (HAL_ADC_Init(&hAdc) == HAL_OK) adcInitialized = true;
+
+    // D1: Channel from pinmap route tuple
+    ADC_ChannelConfTypeDef chCfg = {};
+    chCfg.Channel = VBAT_ADC_CHANNEL;
+    chCfg.Rank = 1;
+#ifdef VBAT_SAMPLE_TIME
+    chCfg.SamplingTime = VBAT_SAMPLE_TIME;
+#else
+    chCfg.SamplingTime = ADC_SAMPLETIME_56CYCLES;
+#endif
+    HAL_ADC_ConfigChannel(&hAdc, &chCfg);
+#endif // HAS_VBAT_SENSE
 }
 
 uint16_t vbatReadRaw() {

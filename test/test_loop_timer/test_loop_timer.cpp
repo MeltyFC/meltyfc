@@ -12,6 +12,8 @@ void test_init_state() {
     TEST_ASSERT_EQUAL(0, lt.stats().totalLoops);
     TEST_ASSERT_EQUAL(UINT32_MAX, lt.stats().minUs);
     TEST_ASSERT_EQUAL(0, lt.stats().maxUs);
+    TEST_ASSERT_EQUAL(UINT32_MAX, lt.stats().execMinUs);
+    TEST_ASSERT_EQUAL(0, lt.stats().execMaxUs);
 }
 
 void test_single_loop() {
@@ -43,6 +45,41 @@ void test_wrap_safe() {
     TEST_ASSERT_UINT32_WITHIN(10, 512, lt.stats().avgUs);
 }
 
+// C7: Execution time tracking
+void test_execution_time() {
+    lt.startLoop(1000);
+    lt.endLoop(1300);     // 300µs of execution
+    lt.startLoop(1500);   // 500µs period (start-to-start)
+    lt.endLoop(1750);     // 250µs of execution
+
+    // Period stats should reflect 500µs
+    TEST_ASSERT_EQUAL(1, lt.stats().totalLoops);
+    TEST_ASSERT_EQUAL(500, lt.stats().avgUs);
+
+    // Execution stats: two loops — 300µs then 250µs
+    TEST_ASSERT_EQUAL(250, lt.stats().execMinUs);
+    TEST_ASSERT_EQUAL(300, lt.stats().execMaxUs);
+}
+
+void test_execution_headroom() {
+    lt.startLoop(1000);
+    lt.endLoop(1200);     // 200µs execution
+    lt.startLoop(1500);
+    lt.endLoop(1700);     // 200µs execution
+
+    // Budget is 500µs, execution avg ≈ 200µs → headroom ≈ 300µs
+    TEST_ASSERT_UINT32_WITHIN(10, 300, lt.headroomUs());
+}
+
+void test_execution_no_double_end() {
+    lt.startLoop(1000);
+    lt.endLoop(1200);
+    lt.endLoop(1300);  // Second endLoop should be ignored (no matching start)
+
+    // Should still have only the first measurement
+    TEST_ASSERT_EQUAL(200, lt.stats().execMinUs);
+}
+
 int main() {
     UNITY_BEGIN();
     RUN_TEST(test_init_state);
@@ -50,5 +87,8 @@ int main() {
     RUN_TEST(test_over_budget_80);
     RUN_TEST(test_over_budget_150);
     RUN_TEST(test_wrap_safe);
+    RUN_TEST(test_execution_time);
+    RUN_TEST(test_execution_headroom);
+    RUN_TEST(test_execution_no_double_end);
     return UNITY_END();
 }

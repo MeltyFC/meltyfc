@@ -199,11 +199,11 @@ is the designed behavior. Documented, not undecided.
 | I-30 | DMA completion callbacks clear per-stream bits | ISR_CONTRACT.md |
 | I-31 | Cell detection returns AMBIGUOUS for overlap voltages | lvcAutoDetectCells() windows |
 | I-32 | DWT micros() uses 64-bit wrap extension | totalCycles accumulation |
-| I-33 | Loop timer measures execution vs period separately | Deferred to integration |
+| I-33 | Loop timer measures execution vs period separately | C7: startLoop/endLoop split + headroomUs() |
 | I-34 | LVC hard cut — no ramp (decision record) | B5 deletion documented |
 | I-35 | CRSF flight-mode frame is standard-class (no dest/origin) | C4 builder fix |
 | I-36 | Blackbox sector-tail arithmetic correct | Deferred to integration |
 | I-37 | Choke functions reject NaN/Inf → 0 | isfinite() in both functions |
-| I-38 | verify.sh gates self-tested by failure injection | Deferred to report |
+| I-38 | verify.sh gates self-tested by failure injection | E1: Step 0 self-test (fail, set -e, pipefail) |
 | I-39 | Errata audit pins ES id+rev+date per document | ERRATA_AUDIT.md header |
 | I-40 | Placeholder pinmaps blocked from flash | verify.sh PLACEHOLDER gate |

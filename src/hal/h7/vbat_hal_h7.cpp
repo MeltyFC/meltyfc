@@ -2,12 +2,21 @@
 // 16-bit ADC (0-65535) — NOT 12-bit like F4/F7!
 // R7-1: Code that assumes 4095 on H7 reads 16x high → LVC never trips.
 // [2026-07-09]
+// [2026-07-10] D1: Consumes VBAT route tuples from pinmap.h.
 
 #ifndef NATIVE_BUILD
 #include "hal/common/vbat_hal.h"
+#include "hal/common/gpio_port_clock.h"
 #ifdef STM32H7xx
 #include "stm32h7xx_hal.h"
 #include "target.h"
+
+// D1: Compile-time gate
+#if defined(HAS_VBAT_SENSE) && HAS_VBAT_SENSE
+#if !defined(VBAT_ADC_INSTANCE) || !defined(VBAT_ADC_CHANNEL) || !defined(VBAT_GPIO_PORT) || !defined(VBAT_GPIO_PIN)
+#error "D1: VBAT route tuple incomplete — pinmap.h must define VBAT_ADC_INSTANCE, VBAT_ADC_CHANNEL, VBAT_GPIO_PORT, VBAT_GPIO_PIN"
+#endif
+#endif
 
 namespace melty {
 namespace hal {
@@ -21,11 +30,21 @@ static constexpr uint16_t ADC_REF_MV = 3300;
 
 void vbatInit() {
     adcInitialized = false;
-    // H7 ADC needs specific clock configuration
-    // ADC3 is the instance used by most H7 FC boards (from BF configs)
-    __HAL_RCC_ADC3_CLK_ENABLE();
 
-    hAdc.Instance = ADC3;  // H7 boards typically use ADC3 for analog
+#if defined(HAS_VBAT_SENSE) && HAS_VBAT_SENSE
+    // D1: GPIO analog input
+    gpioEnablePortClock(VBAT_GPIO_PORT);
+    GPIO_InitTypeDef gpio = {};
+    gpio.Pin = VBAT_GPIO_PIN;
+    gpio.Mode = GPIO_MODE_ANALOG;
+    gpio.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(VBAT_GPIO_PORT, &gpio);
+
+    // H7 ADC clock — enable based on instance from route tuple
+    if (VBAT_ADC_INSTANCE == ADC3) __HAL_RCC_ADC3_CLK_ENABLE();
+    else __HAL_RCC_ADC12_CLK_ENABLE();
+
+    hAdc.Instance = VBAT_ADC_INSTANCE;
     hAdc.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV6;
     hAdc.Init.Resolution = ADC_RESOLUTION_16B;  // 16-bit — the H7 difference
     hAdc.Init.ScanConvMode = ADC_SCAN_DISABLE;
@@ -41,6 +60,20 @@ void vbatInit() {
         HAL_ADCEx_Calibration_Start(&hAdc, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED);
         adcInitialized = true;
     }
+
+    // D1: Channel from pinmap route tuple
+    ADC_ChannelConfTypeDef chCfg = {};
+    chCfg.Channel = VBAT_ADC_CHANNEL;
+    chCfg.Rank = ADC_REGULAR_RANK_1;
+    chCfg.SingleDiff = ADC_SINGLE_ENDED;
+    chCfg.OffsetNumber = ADC_OFFSET_NONE;
+#ifdef VBAT_SAMPLE_TIME
+    chCfg.SamplingTime = VBAT_SAMPLE_TIME;
+#else
+    chCfg.SamplingTime = ADC_SAMPLETIME_64CYCLES_5;
+#endif
+    HAL_ADC_ConfigChannel(&hAdc, &chCfg);
+#endif // HAS_VBAT_SENSE
 }
 
 uint16_t vbatReadRaw() {

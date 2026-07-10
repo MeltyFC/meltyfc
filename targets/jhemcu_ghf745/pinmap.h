@@ -62,9 +62,14 @@
 #define CRSF_RX_PIN PC7    // BF_CONFIG_DERIVED — verify on live dump at arrival
 #define CRSF_BAUD 420000
 
-// Battery voltage sense (ADC)
+// D1: Battery voltage sense — ADC route tuple
 #define VBAT_PIN PC3                 // BF_CONFIG_DERIVED — verify on live dump at arrival
 #define VBAT_DIVIDER_RATIO 11.0f     // BF_CONFIG_DERIVED — verify on live dump at arrival
+#define VBAT_ADC_INSTANCE ADC1
+#define VBAT_ADC_CHANNEL ADC_CHANNEL_13  // PC3 = ADC1_IN13
+#define VBAT_GPIO_PORT GPIOC
+#define VBAT_GPIO_PIN GPIO_PIN_3
+#define VBAT_SAMPLE_TIME ADC_SAMPLETIME_56CYCLES
 
 // Current sense (ADC) — BF: DEFAULT_CURRENT_METER_SCALE 275
 #define CURRENT_PIN PC2              // BF_CONFIG_DERIVED — verify on live dump at arrival

@@ -1,14 +1,23 @@
 // MeltyFC — VBAT HAL: STM32F4 Family
 // 12-bit ADC (0-4095), 3.3V reference, per-target divider ratio.
 // [2026-07-09] R7-1: Provides senses for the LVC brain.
+// [2026-07-10] D1: Consumes VBAT route tuples from pinmap.h.
 
 #ifndef NATIVE_BUILD
 
 #include "hal/common/vbat_hal.h"
+#include "hal/common/gpio_port_clock.h"
 
 #ifdef STM32F4xx
 #include "stm32f4xx_hal.h"
 #include "target.h"
+
+// D1: Compile-time gate — pinmap must define VBAT route tuple
+#if defined(HAS_VBAT_SENSE) && HAS_VBAT_SENSE
+#if !defined(VBAT_ADC_INSTANCE) || !defined(VBAT_ADC_CHANNEL) || !defined(VBAT_GPIO_PORT) || !defined(VBAT_GPIO_PIN)
+#error "D1: VBAT route tuple incomplete — pinmap.h must define VBAT_ADC_INSTANCE, VBAT_ADC_CHANNEL, VBAT_GPIO_PORT, VBAT_GPIO_PIN"
+#endif
+#endif
 
 namespace melty {
 namespace hal {
@@ -22,9 +31,19 @@ static constexpr uint16_t ADC_REF_MV = 3300;       // 3.3V reference
 void vbatInit() {
     adcInitialized = false;
 
-    __HAL_RCC_ADC1_CLK_ENABLE();
+#if defined(HAS_VBAT_SENSE) && HAS_VBAT_SENSE
+    // D1: Enable GPIO clock and configure pin as analog input
+    gpioEnablePortClock(VBAT_GPIO_PORT);
+    GPIO_InitTypeDef gpio = {};
+    gpio.Pin = VBAT_GPIO_PIN;
+    gpio.Mode = GPIO_MODE_ANALOG;
+    gpio.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(VBAT_GPIO_PORT, &gpio);
 
-    hAdc.Instance = ADC1;
+    // Enable ADC clock — determine from instance
+    if (VBAT_ADC_INSTANCE == ADC1) __HAL_RCC_ADC1_CLK_ENABLE();
+
+    hAdc.Instance = VBAT_ADC_INSTANCE;
     hAdc.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
     hAdc.Init.Resolution = ADC_RESOLUTION_12B;
     hAdc.Init.ScanConvMode = DISABLE;
@@ -37,12 +56,17 @@ void vbatInit() {
         adcInitialized = true;
     }
 
-    // Configure VBAT channel
+    // D1: Configure VBAT channel from pinmap route tuple
     ADC_ChannelConfTypeDef chCfg = {};
-    chCfg.Channel = ADC_CHANNEL_10;  // PC0 = ADC_CHANNEL_10 — verify per pinmap
+    chCfg.Channel = VBAT_ADC_CHANNEL;
     chCfg.Rank = 1;
+#ifdef VBAT_SAMPLE_TIME
+    chCfg.SamplingTime = VBAT_SAMPLE_TIME;
+#else
     chCfg.SamplingTime = ADC_SAMPLETIME_56CYCLES;
+#endif
     HAL_ADC_ConfigChannel(&hAdc, &chCfg);
+#endif // HAS_VBAT_SENSE
 }
 
 uint16_t vbatReadRaw() {
@@ -57,10 +81,8 @@ uint16_t vbatReadRaw() {
 uint32_t vbatReadMv() {
     uint16_t raw = vbatReadRaw();
     if (raw == 0) return 0;
-    // Convert: mV = raw * 3300 / 4095 * divider_ratio
     uint32_t adcMv = (uint32_t)raw * ADC_REF_MV / ADC_FULL_SCALE;
 #ifdef VBAT_DIVIDER_RATIO
-    // VBAT_DIVIDER_RATIO is a float — multiply to get pack voltage
     return (uint32_t)((float)adcMv * VBAT_DIVIDER_RATIO);
 #else
     return adcMv;
