@@ -66,8 +66,8 @@ Save these — they're your board's pin assignments. You'll need them to verify 
 
 ```bash
 # Clone the repo
-git clone https://github.com/MeltyFC/firmware.git
-cd firmware
+git clone https://github.com/MeltyFC/meltyfc.git
+cd meltyfc
 
 # Run the test suite (no hardware needed — verifies your toolchain)
 pio test -e native

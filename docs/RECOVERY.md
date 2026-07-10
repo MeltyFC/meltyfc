@@ -93,5 +93,5 @@ version
 
 ## Emergency contacts
 
-- **MeltyFC GitHub Issues**: https://github.com/MeltyFC/firmware/issues
+- **MeltyFC GitHub Issues**: https://github.com/MeltyFC/meltyfc/issues
 - **SPARC safety rules**: https://sparc.tools
