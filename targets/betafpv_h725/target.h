@@ -1,6 +1,6 @@
 // MeltyFC — BetaFPV H725 Target Configuration
 // MCU: STM32H725RGV6
-// 550MHz capable (VOS0) — bring up at 520MHz VOS1 (conservative)
+// MCU supports 550MHz (VOS0). Running at 400MHz VOS1 (H743 proven chain).
 
 #pragma once
 
@@ -42,6 +42,6 @@ void SystemClock_Config(void);
 // Feature tier: FULL (1MB flash)
 
 // B1: H7_PWR_SUPPLY is defined in pinmap.h (REQUIRED, no default)
-// B2: Clock at 520MHz VOS0 (standard max). 550MHz needs VOS0 boost.
+// B2: Clock at 400MHz VOS1. 520MHz requires VOS0 + SMPS research — parked.
 // B3: D2 SRAM = 32KB (not 128KB like H743!)
 #define EXPECTED_TIMER_CLOCK_HZ 200000000U  // CS-3: 400MHz/2 = 200MHz timer clock

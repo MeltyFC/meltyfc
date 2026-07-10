@@ -78,3 +78,29 @@ uint8_t getUniqueTimers(const MotorRouteEntry* routes, uint8_t count,
 #endif // NATIVE_BUILD
 
 } // namespace melty
+
+// E3/I-27: Required route defines — compile error if ANY motor tuple member missing
+#ifndef NATIVE_BUILD
+#ifndef MOTOR1_TIMER
+    #error "MOTOR1_TIMER not defined — add full route tuple to target pinmap.h"
+#endif
+#ifndef MOTOR1_CHANNEL
+    #error "MOTOR1_CHANNEL not defined — add full route tuple to target pinmap.h"
+#endif
+#ifndef MOTOR1_AF
+    #error "MOTOR1_AF not defined — add full route tuple to target pinmap.h"
+#endif
+#ifndef MOTOR1_GPIO_PORT
+    #error "MOTOR1_GPIO_PORT not defined — add full route tuple to target pinmap.h"
+#endif
+#ifndef MOTOR1_GPIO_PIN
+    #error "MOTOR1_GPIO_PIN not defined — add full route tuple to target pinmap.h"
+#endif
+// Repeat for LED strip
+#ifndef LED_STRIP_TIMER
+    #error "LED_STRIP_TIMER not defined — add LED route to target pinmap.h"
+#endif
+#ifndef LED_STRIP_CHANNEL
+    #error "LED_STRIP_CHANNEL not defined — add LED route to target pinmap.h"
+#endif
+#endif // NATIVE_BUILD

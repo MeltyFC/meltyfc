@@ -54,10 +54,10 @@ WS2812 + bidirectional DShot allocation must be solved per-board.
 - No CCM on F411 — all SRAM is DMA-accessible (simpler than F405)
 
 **F411 DShot300 timing at 100MHz:**
-  Bit period = 100MHz / 300kHz = 333 ticks (vs 280 @84MHz on F405)
-  Bit 1 high = 250 ticks (75%)
-  Bit 0 high = 125 ticks (37.5%)
-  (More resolution than F405 — this is actually favorable)
+  Bit period = 96MHz / 300kHz = 320 ticks (vs 280 @84MHz on F405)
+  Bit 1 high = 240 ticks (75%)
+  Bit 0 high = 120 ticks (37.5%)
+  (Similar resolution to F405 — this is actually favorable)
 
 ## I2C Peripheral
 

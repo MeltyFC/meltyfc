@@ -56,7 +56,7 @@ namespace melty {
 
 // --- V-3/C4: Reset cause + A2: Fault breadcrumbs ---
 #ifndef ARDUINO
-#include "reset_cause.hpp"
+#include "hal/common/reset_cause.hpp"
 #include "hal/common/fault_handler_hw.h"
 #endif
 
